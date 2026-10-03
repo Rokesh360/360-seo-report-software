@@ -1,0 +1,313 @@
+/* =========================================================
+   COMMON DATATABLE STYLE
+   Used for all DataTables in the admin panel
+   ========================================================= */
+
+/* Main DataTable container */
+.dt-container {
+    width: 100%;
+    font-family: "DM Sans", sans-serif;
+    color: #1e293b;
+}
+
+/* ---------------------------------------------------------
+   TOP / BOTTOM CONTROL ROW
+   --------------------------------------------------------- */
+
+.dt-container .dt-layout-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 20px;
+    box-sizing: border-box;
+}
+
+.dt-container .dt-layout-row:first-child {
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.dt-container .dt-layout-row:last-child {
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+
+/* ---------------------------------------------------------
+   SHOW RECORDS
+   --------------------------------------------------------- */
+
+.dt-container .dt-length {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.dt-container .dt-length label {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.dt-container .dt-length select {
+    min-width: 70px;
+    height: 40px;
+    padding: 0 30px 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+}
+
+.dt-container .dt-length select:focus {
+    border-color: #0b2350;
+}
+
+
+/* ---------------------------------------------------------
+   SEARCH
+   --------------------------------------------------------- */
+
+.dt-container .dt-search {
+    display: flex;
+    align-items: center;
+}
+
+.dt-container .dt-search label {
+    display: none;
+}
+
+.dt-container .dt-search input {
+    width: 280px;
+    height: 42px;
+    padding: 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1e293b;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.dt-container .dt-search input::placeholder {
+    color: #94a3b8;
+}
+
+.dt-container .dt-search input:focus {
+    border-color: #0b2350;
+    box-shadow: 0 0 0 2px rgba(11, 35, 80, 0.08);
+}
+
+
+/* ---------------------------------------------------------
+   TABLE
+   --------------------------------------------------------- */
+
+.dt-container table.dataTable {
+    width: 100% !important;
+    margin: 0 !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+}
+
+/* Table header */
+.dt-container table.dataTable thead th {
+    background: #f8fafc !important;
+    color: #64748b !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 15px 20px !important;
+    border-bottom: 1px solid #dfe3e8 !important;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Table body */
+.dt-container table.dataTable tbody td {
+    padding: 14px 20px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+/* Row hover */
+.dt-container table.dataTable tbody tr:hover {
+    background: #fafbfc !important;
+}
+
+/* Last row */
+.dt-container table.dataTable tbody tr:last-child td {
+    border-bottom: 0 !important;
+}
+
+
+/* ---------------------------------------------------------
+   SORTING
+   --------------------------------------------------------- */
+
+.dt-container table.dataTable thead th.dt-orderable-asc,
+.dt-container table.dataTable thead th.dt-orderable-desc {
+    cursor: pointer;
+}
+
+/* Remove default ugly background */
+.dt-container table.dataTable thead th.dt-orderable-asc,
+.dt-container table.dataTable thead th.dt-orderable-desc,
+.dt-container table.dataTable thead th.dt-ordering-asc,
+.dt-container table.dataTable thead th.dt-ordering-desc {
+    background-image: none !important;
+}
+
+
+/* ---------------------------------------------------------
+   INFORMATION
+   --------------------------------------------------------- */
+
+.dt-container .dt-info {
+    color: #64748b;
+    font-size: 14px;
+}
+
+
+/* ---------------------------------------------------------
+   PAGINATION
+   --------------------------------------------------------- */
+
+.dt-container .dt-paging {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dt-container .dt-paging .dt-paging-button {
+    min-width: 38px;
+    height: 38px;
+    margin: 0 !important;
+    padding: 0 10px !important;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid transparent !important;
+    border-radius: 5px;
+
+    background: transparent !important;
+    color: #64748b !important;
+
+    font-size: 14px;
+    font-family: inherit;
+
+    cursor: pointer;
+}
+
+.dt-container .dt-paging .dt-paging-button:hover {
+    background: #f1f5f9 !important;
+    color: #0b2350 !important;
+}
+
+/* Active page */
+.dt-container .dt-paging .dt-paging-button.current {
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0b2350 !important;
+    font-weight: 600;
+}
+
+/* Disabled */
+.dt-container .dt-paging .dt-paging-button.disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+
+/* ---------------------------------------------------------
+   EMPTY TABLE
+   --------------------------------------------------------- */
+
+.dt-container table.dataTable tbody td.dataTables_empty {
+    padding: 50px 20px !important;
+    text-align: center !important;
+    color: #64748b;
+}
+
+
+/* ---------------------------------------------------------
+   DATA TABLE INSIDE PANEL
+   --------------------------------------------------------- */
+
+.panel .dt-container {
+    width: 100%;
+}
+
+.panel .dt-container table.dataTable {
+    width: 100% !important;
+}
+
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+   --------------------------------------------------------- */
+
+@media (max-width: 768px) {
+
+    .dt-container .dt-layout-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .dt-container .dt-search {
+        width: 100%;
+    }
+
+    .dt-container .dt-search input {
+        width: 100%;
+    }
+
+    .dt-container .dt-layout-row:last-child {
+        align-items: flex-start;
+    }
+
+    .dt-container .dt-paging {
+        flex-wrap: wrap;
+    }
+
+    .dt-container .dt-info {
+        width: 100%;
+    }
+
+    .dt-container .dt-length {
+        width: 100%;
+    }
+
+    .dt-container .dt-search {
+        width: 100%;
+    }
+}
+
+
+/* ---------------------------------------------------------
+   HORIZONTAL TABLE SCROLL
+   --------------------------------------------------------- */
+
+.data-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.data-table-wrapper .dt-container {
+    min-width: 900px;
+}
