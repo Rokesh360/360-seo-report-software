@@ -57,7 +57,7 @@ input {
     min-height: 100vh;
     padding: 42px 7.5%;
     color: #fff;
-    background: #164b38;
+    background: url('../../public/assets/360degreeinfo.png') no-repeat center center / cover;
 }
 
 .auth-story::before,
@@ -72,9 +72,9 @@ input {
     height: 540px;
     right: -205px;
     bottom: -240px;
-    border: 1px solid rgb(255 255 255 / 13%);
+    /* border: 1px solid rgb(255 255 255 / 13%); */
     border-radius: 50%;
-    box-shadow: 0 0 0 52px rgb(255 255 255 / 3%), 0 0 0 104px rgb(255 255 255 / 3%), 0 0 0 156px rgb(255 255 255 / 3%);
+    /* box-shadow: 0 0 0 52px rgb(255 255 255 / 3%), 0 0 0 104px rgb(255 255 255 / 3%), 0 0 0 156px rgb(255 255 255 / 3%); */
 }
 
 .auth-story::after {
@@ -157,7 +157,7 @@ input {
 .story-copy p {
     max-width: 340px;
     margin: 0;
-    color: #c0d1c7;
+    color: #d1cac0;
     font-size: 15px;
     line-height: 1.75;
 }
@@ -290,7 +290,7 @@ input {
 
 .button-primary {
     color: white;
-    background: var(--green);
+    background: #52658c;
 }
 
 .button-primary:hover {
@@ -379,6 +379,13 @@ input {
 
 .sidebar-brand {
     padding: 0 10px;
+}
+
+.sidebar-brand img {
+    display: block;
+    max-width: 100%;
+    height: 48px;
+    object-fit: contain;
 }
 
 .workspace-label {
@@ -1218,6 +1225,10 @@ td:first-child {
     padding: 15px 1px 2px;
     color: #9da69f;
     font-size: 9px;
+}
+
+.admin-footer-content {
+    padding-top: 0;
 }
 
 @media (min-width: 1450px) {

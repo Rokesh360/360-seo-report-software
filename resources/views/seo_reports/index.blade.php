@@ -1,32 +1,10 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    <title>SEO Reports | {{ config('app.name') }}</title>
-
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|space-grotesk:500,600,700" rel="stylesheet">
-
-    {{-- DataTables CSS --}}
-    <link rel="stylesheet"
-        href="https://cdn.datatables.net/2.3.4/css/dataTables.dataTables.min.css">
-
-    @vite(['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'])
-</head>
-
-<body class="admin-page">
-
-    <div class="admin-shell">
-
-        @include('admin.partials.sidebar', ['active' => 'reports'])
-
-        <main class="admin-main">
-
-            @include('admin.partials.topbar', ['pageTitle' => 'SEO reports'])
+@include('admin.partials.header', [
+    'pageTitle' => 'SEO reports',
+    'documentTitle' => 'SEO Reports',
+    'active' => 'reports',
+    'includeDataTables' => true,
+    'viteAssets' => ['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'],
+])
 
             <div class="dashboard-content report-content">
 
@@ -47,10 +25,10 @@
 
                     <div class="report-heading-actions">
 
-                        <a href="{{ route('seo-reports.trash') }}"
+                        <!-- <a href="{{ route('seo-reports.trash') }}"
                             class="button button-secondary">
                             View trash
-                        </a>
+                        </a> -->
 
                         <a href="{{ route('seo-reports.create') }}"
                             class="button button-primary">
@@ -79,7 +57,7 @@
                             {{ \Illuminate\Support\Str::plural('report', $reports->total()) }}
                         </div>
 
-                        <span>Latest reporting periods</span>
+                        <span>Newest reports first</span>
 
                     </div>
 
@@ -95,8 +73,6 @@
                                     <th>CLIENT</th>
                                     <th>WEBSITE</th>
                                     <th>PERIOD</th>
-                                    <th>CLICKS</th>
-                                    <th>IMPRESSIONS</th>
                                     <th>KEYWORDS</th>
                                     <th class="report-actions-heading" style="text-align: center;">
                                         ACTIONS
@@ -131,14 +107,6 @@
                                         <span class="report-period-tag">
                                             {{ $report->reporting_period }}
                                         </span>
-                                    </td>
-
-                                    <td data-order="{{ $report->total_clicks }}">
-                                        {{ number_format($report->total_clicks) }}
-                                    </td>
-
-                                    <td data-order="{{ $report->total_impressions }}">
-                                        {{ number_format($report->total_impressions) }}
                                     </td>
 
                                     <td data-order="{{ count($report->keywords ?? []) }}">
@@ -195,25 +163,7 @@
 
                 </section>
 
-
-                <footer class="dashboard-footer">
-
-                    <span>SEO monthly reporting</span>
-
-                    <span>
-                        {{ $reports->total() }}
-                        total
-                        {{ \Illuminate\Support\Str::plural('report', $reports->total()) }}
-                    </span>
-
-                </footer>
-
             </div>
-
-        </main>
-
-    </div>
-
 
     {{-- jQuery --}}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -235,13 +185,13 @@
                 ],
 
                 order: [
-                    [3, 'desc']
+                    [0, 'asc']
                 ],
 
                 columnDefs: [{
                     orderable: false,
                     searchable: false,
-                    targets: [0, 7]
+                    targets: [0, 5]
                 }],
 
                 language: {
@@ -259,6 +209,4 @@
         });
     </script>
 
-</body>
-
-</html>
+@include('admin.partials.footer')

@@ -24,7 +24,9 @@ $monthOptions = [
 ];
 
 $currentYear = (int) date('Y');
-$yearOptions = range($currentYear - 5, $currentYear + 5);
+$startYear = 2000;
+
+$yearOptions = range($startYear, $currentYear);
 
 // -------- On-Page options --------
 $defaultOnPageOptions = [
@@ -65,28 +67,23 @@ $images = old('images', $report
 ? collect($report->images)->map(fn ($i) => ['title' => $i['title'], 'existing' => $i['path']])->all()
 : []);
 
+// -------- Performance images --------
+$performanceImages = old('performance_images', $report
+? collect($report->performance_images ?? [])->map(fn ($i) => ['title' => $i['title'], 'existing' => $i['path']])->all()
+: []);
+if (empty($performanceImages)) {
+$performanceImages = [['title' => '', 'existing' => null]];
+}
+
 $pageOptions = range(1, 10);
 $positionOptions = range(1, 10);
 @endphp
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title }} | {{ config('app.name') }}</title>
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|space-grotesk:500,600,700" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-
-<body class="admin-page report-page">
-    <div class="admin-shell">
-        @include('admin.partials.sidebar', ['active' => 'reports'])
-        <main class="admin-main">
-            @include('admin.partials.topbar', ['pageTitle' => $title])
+@include('admin.partials.header', [
+    'pageTitle' => $title,
+    'active' => 'reports',
+    'bodyClass' => 'admin-page report-page',
+    'includeBootstrap' => true,
+])
             <div class="dashboard-content report-content">
                 <section class="page-heading report-page-heading">
                     <div>
@@ -214,7 +211,7 @@ $positionOptions = range(1, 10);
                         </div>
                     </div>
 
-                    {{-- Targeting Keywords --}}
+                    {{-- Targeting Keywords (text only) --}}
                     <div class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Targeting Keywords</span>
@@ -224,35 +221,92 @@ $positionOptions = range(1, 10);
                         <div class="card-body" id="keyword-rows">
                             @foreach($keywords as $i => $row)
                             <div class="keyword-row border rounded p-3 mb-3 bg-light" data-index="{{ $i }}">
-
-                                {{-- Row header --}}
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="badge bg-secondary">Keyword #<span class="kw-number">{{ $i + 1 }}</span></span>
-                                    <button type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        onclick="removeKeywordRow(this)"
-                                        title="Remove keyword">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeKeywordRow(this)" title="Remove keyword">
                                         &times; Remove
                                     </button>
                                 </div>
 
-                                {{-- Row body --}}
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label mb-1">Keyword</label>
-                                        <input name="keywords[{{ $i }}][keyword]"
-                                            class="form-control keyword-input @error(" keywords.{$i}.keyword") is-invalid @enderror"
-                                            placeholder="Enter keyword"
-                                            value="{{ $row['keyword'] ?? '' }}">
-                                        @error("keywords.{$i}.keyword")
-                                        <span class="field-error d-block">{{ $message }}</span>
-                                        @enderror
-                                    </div>
+                                <label class="form-label mb-1">Keyword</label>
+                                <input name="keywords[{{ $i }}][keyword]"
+                                    class="form-control keyword-input @error(" keywords.{$i}.keyword") is-invalid @enderror"
+                                    placeholder="Enter keyword"
+                                    value="{{ $row['keyword'] ?? '' }}"
+                                    oninput="onKeywordInput(this)">
+                                @error("keywords.{$i}.keyword")
+                                <span class="field-error d-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            @endforeach
 
+                            @error('keywords')
+                            <span class="field-error d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    {{-- Google performance (image upload) --}}
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Google Performance (upload images)</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="addPerformanceImage()">+ Add Image</button>
+                        </div>
+                        <div class="card-body" id="performance-rows">
+                            @foreach($performanceImages as $i => $row)
+                            <div class="row g-2 mb-2 align-items-center performance-row">
+                                <div class="col-md-4">
+                                    <input name="performance_images[{{ $i }}][title]"
+                                        class="form-control @error(" performance_images.{$i}.title") is-invalid @enderror"
+                                        placeholder="Title (e.g. Clicks & Impressions)" value="{{ $row['title'] ?? '' }}">
+                                    @error("performance_images.{$i}.title")
+                                    <span class="field-error d-block">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="file" name="performance_images[{{ $i }}][file]" accept="image/*"
+                                        class="form-control @error(" performance_images.{$i}.file") is-invalid @enderror">
+                                    @if(!empty($row['existing']))
+                                    <input type="hidden" name="performance_images[{{ $i }}][existing]" value="{{ $row['existing'] }}">
+                                    @endif
+                                    @error("performance_images.{$i}.file")
+                                    <span class="field-error d-block">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                                <div class="col-md-2">
+                                    @if(!empty($row['existing']))
+                                    <img src="{{ asset('storage/'.$row['existing']) }}" style="height:45px" alt="">
+                                    @endif
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-outline-danger w-100" onclick="this.closest('.performance-row').remove()">×</button>
+                                </div>
+                            </div>
+                            @endforeach
+                            @error('performance_images')
+                            <span class="field-error d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    {{-- Keyword Page / Position / Screenshot (after Google performance) --}}
+                    <div class="card mb-3">
+                        <div class="card-header">Keyword Target Page, Position &amp; Screenshot</div>
+                        <div class="card-body" id="keyword-detail-rows">
+                            <p class="text-muted mb-0" id="keyword-detail-empty">Enter a keyword above to add its page, position and screenshot.</p>
+
+                            @foreach($keywords as $i => $row)
+                            @php $filled = trim($row['keyword'] ?? '') !== ''; @endphp
+                            <div class="keyword-detail-row border rounded p-3 mb-3 bg-light" data-index="{{ $i }}" style="{{ $filled ? '' : 'display:none' }}">
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary">Keyword #<span class="kw-number">{{ $i + 1 }}</span></span>
+                                    <strong class="ms-2 kw-label">{{ $row['keyword'] ?? '' }}</strong>
+                                </div>
+
+                                <div class="row g-2">
                                     <div class="col-md-3">
                                         <label class="form-label mb-1">Target Page</label>
-                                        <select name="keywords[{{ $i }}][page]"
-                                            class="form-select @error(" keywords.{$i}.page") is-invalid @enderror">
+                                        <select name="keywords[{{ $i }}][page]" class="form-select @error(" keywords.{$i}.page") is-invalid @enderror">
                                             <option value="">-- Page --</option>
                                             @foreach($pageOptions as $p)
                                             <option value="{{ $p }}" @selected((int) ($row['page'] ?? 0)===$p)>
@@ -267,8 +321,7 @@ $positionOptions = range(1, 10);
 
                                     <div class="col-md-3">
                                         <label class="form-label mb-1">Target Position</label>
-                                        <select name="keywords[{{ $i }}][position]"
-                                            class="form-select @error(" keywords.{$i}.position") is-invalid @enderror">
+                                        <select name="keywords[{{ $i }}][position]" class="form-select @error(" keywords.{$i}.position") is-invalid @enderror">
                                             <option value="">-- Position --</option>
                                             @foreach($positionOptions as $pos)
                                             <option value="{{ $pos }}" @selected((int) ($row['position'] ?? 0)===$pos)>
@@ -280,69 +333,23 @@ $positionOptions = range(1, 10);
                                         <span class="field-error d-block">{{ $message }}</span>
                                         @enderror
                                     </div>
-                                </div>
 
-                                {{-- Screenshot file only --}}
-                                <div class="row g-2 mt-2 align-items-center keyword-image-row">
-                                    <div class="col-md-10">
-                                        <label class="form-label mb-1 small text-muted">Screenshot file</label>
-                                        <input type="file"
-                                            name="keywords[{{ $i }}][image_file]"
-                                            accept="image/*"
-                                            class="form-control">
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1">Screenshot file</label>
+                                        <input type="file" name="keywords[{{ $i }}][image_file]" accept="image/*" class="form-control">
                                         @if(!empty($row['image_existing']))
                                         <input type="hidden" name="keywords[{{ $i }}][image_existing]" value="{{ $row['image_existing'] }}">
                                         @endif
                                     </div>
-                                    <div class="col-md-2 text-center">
+
+                                    <div class="col-md-2 text-center align-self-end">
                                         @if(!empty($row['image_existing']))
-                                        <img src="{{ asset('storage/'.$row['image_existing']) }}"
-                                            style="height:45px; border-radius:4px;"
-                                            alt="screenshot">
+                                        <img src="{{ asset('storage/'.$row['image_existing']) }}" style="height:45px; border-radius:4px;" alt="screenshot">
                                         @endif
                                     </div>
                                 </div>
                             </div>
                             @endforeach
-
-                            @error('keywords')
-                            <span class="field-error d-block">{{ $message }}</span>
-                            @enderror
-                        </div>
-                    </div>
-
-                    {{-- Google performance --}}
-                    <div class="card mb-3">
-                        <div class="card-header">Target Performance of Google</div>
-                        <div class="card-body row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Total clicks</label>
-                                <input type="number" name="total_clicks" class="form-control @error('total_clicks') is-invalid @enderror" value="{{ $v('total_clicks', 0) }}">
-                                @error('total_clicks')
-                                <span class="field-error">{{ $message }}</span>
-                                @enderror
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Total impressions</label>
-                                <input type="number" name="total_impressions" class="form-control @error('total_impressions') is-invalid @enderror" value="{{ $v('total_impressions', 0) }}">
-                                @error('total_impressions')
-                                <span class="field-error">{{ $message }}</span>
-                                @enderror
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Average CTR (%)</label>
-                                <input type="number" step="0.01" name="average_ctr" class="form-control @error('average_ctr') is-invalid @enderror" value="{{ $v('average_ctr', 0) }}">
-                                @error('average_ctr')
-                                <span class="field-error">{{ $message }}</span>
-                                @enderror
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Average position</label>
-                                <input type="number" step="0.01" name="average_position" class="form-control @error('average_position') is-invalid @enderror" value="{{ $v('average_position', 0) }}">
-                                @error('average_position')
-                                <span class="field-error">{{ $message }}</span>
-                                @enderror
-                            </div>
                         </div>
                     </div>
 
@@ -429,39 +436,23 @@ $positionOptions = range(1, 10);
                     </div>
                 </form>
             </div>
-        </main>
-    </div>
 
     <script>
         let kIndex = Number(@json(count($keywords)));
         let iIndex = Number(@json($images ? max(array_keys($images)) + 1 : 0));
+        let pIndex = Number(@json(count($performanceImages)));
 
         const pageOptions = @json($pageOptions);
         const positionOptions = @json($positionOptions);
 
         /* ---------- Keyword rows ---------- */
-        function buildKeywordRow(index, data = {}) {
-            const ordinal = (n) => {
-                n = parseInt(n, 10);
-                const s = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
-                return n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : s[n % 10]);
-            };
+        function ordinal(n) {
+            n = parseInt(n, 10);
+            const s = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+            return n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : s[n % 10]);
+        }
 
-            const pageOpts = pageOptions.map(p => `
-        <option value="${p}" ${ (parseInt(data.page) === p) ? 'selected' : '' }>
-            ${ordinal(p)} Page
-        </option>`).join('');
-
-            const posOpts = positionOptions.map(pos => `
-        <option value="${pos}" ${ (parseInt(data.position) === pos) ? 'selected' : '' }>
-            ${ordinal(pos)} Position
-        </option>`).join('');
-
-            const existingImage = data.image_existing ?
-                `<input type="hidden" name="keywords[${index}][image_existing]" value="${data.image_existing}">
-           <img src="/storage/${data.image_existing}" style="height:45px; border-radius:4px;" alt="screenshot">` :
-                '';
-
+        function buildKeywordRow(index) {
             return `
     <div class="keyword-row border rounded p-3 mb-3 bg-light" data-index="${index}">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -470,69 +461,94 @@ $positionOptions = range(1, 10);
                 &times; Remove
             </button>
         </div>
+        <label class="form-label mb-1">Keyword</label>
+        <input name="keywords[${index}][keyword]" class="form-control keyword-input"
+               placeholder="Enter keyword" oninput="onKeywordInput(this)">
+    </div>`;
+        }
 
+        function buildDetailRow(index) {
+            const pageOpts = pageOptions.map(p => `<option value="${p}">${ordinal(p)} Page</option>`).join('');
+            const posOpts = positionOptions.map(p => `<option value="${p}">${ordinal(p)} Position</option>`).join('');
+
+            return `
+    <div class="keyword-detail-row border rounded p-3 mb-3 bg-light" data-index="${index}" style="display:none">
+        <div class="mb-2">
+            <span class="badge bg-secondary">Keyword #<span class="kw-number"></span></span>
+            <strong class="ms-2 kw-label"></strong>
+        </div>
         <div class="row g-2">
-            <div class="col-md-6">
-                <label class="form-label mb-1">Keyword</label>
-                <input name="keywords[${index}][keyword]"
-                       class="form-control keyword-input"
-                       placeholder="Enter keyword"
-                       value="${data.keyword || ''}"
-                       oninput="onKeywordInput(this)">
-            </div>
             <div class="col-md-3">
                 <label class="form-label mb-1">Target Page</label>
                 <select name="keywords[${index}][page]" class="form-select">
-                    <option value="">-- Page --</option>
-                    ${pageOpts}
+                    <option value="">-- Page --</option>${pageOpts}
                 </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label mb-1">Target Position</label>
                 <select name="keywords[${index}][position]" class="form-select">
-                    <option value="">-- Position --</option>
-                    ${posOpts}
+                    <option value="">-- Position --</option>${posOpts}
                 </select>
             </div>
-        </div>
-
-        <div class="row g-2 mt-2 align-items-center keyword-image-row">
-            <div class="col-md-10">
-                <label class="form-label mb-1 small text-muted">Screenshot file</label>
+            <div class="col-md-4">
+                <label class="form-label mb-1">Screenshot file</label>
                 <input type="file" name="keywords[${index}][image_file]" accept="image/*" class="form-control">
-                ${existingImage}
             </div>
-            <div class="col-md-2 text-center"></div>
+            <div class="col-md-2"></div>
         </div>
     </div>`;
         }
 
         function addKeyword() {
-            document.getElementById('keyword-rows')
-                .insertAdjacentHTML('beforeend', buildKeywordRow(kIndex, {}));
+            document.getElementById('keyword-rows').insertAdjacentHTML('beforeend', buildKeywordRow(kIndex));
+            document.getElementById('keyword-detail-rows').insertAdjacentHTML('beforeend', buildDetailRow(kIndex));
             kIndex++;
+            refreshKeywordUI();
         }
 
         function removeKeywordRow(btn) {
+            const row = btn.closest('.keyword-row');
+            const detail = document.querySelector(`.keyword-detail-row[data-index="${row.dataset.index}"]`);
             const rows = document.querySelectorAll('#keyword-rows .keyword-row');
+
             if (rows.length > 1) {
-                btn.closest('.keyword-row').remove();
+                row.remove();
+                detail?.remove();
             } else {
-                const row = btn.closest('.keyword-row');
-                row.querySelectorAll('input[type="text"], input[type="file"]').forEach(el => el.value = '');
-                row.querySelectorAll('select').forEach(el => el.value = '');
+                row.querySelectorAll('input[type="text"]').forEach(el => el.value = '');
+                if (detail) {
+                    detail.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
+                    detail.querySelectorAll('select').forEach(el => el.value = '');
+                    detail.style.display = 'none';
+                }
             }
+            refreshKeywordUI();
         }
 
         function onKeywordInput(input) {
             const row = input.closest('.keyword-row');
-            const allRows = document.querySelectorAll('#keyword-rows .keyword-row');
-            const isLast = row === allRows[allRows.length - 1];
+            const detail = document.querySelector(`.keyword-detail-row[data-index="${row.dataset.index}"]`);
+            const text = input.value.trim();
 
-            if (isLast && input.value.trim() !== '') {
-                addKeyword();
+            if (detail) {
+                detail.style.display = text !== '' ? '' : 'none';
+                detail.querySelector('.kw-label').textContent = input.value;
             }
+
+            refreshKeywordUI();
         }
+
+        function refreshKeywordUI() {
+            document.querySelectorAll('#keyword-rows .keyword-row .kw-number')
+                .forEach((el, i) => el.textContent = i + 1);
+            document.querySelectorAll('#keyword-detail-rows .keyword-detail-row .kw-number')
+                .forEach((el, i) => el.textContent = i + 1);
+
+            const anyVisible = [...document.querySelectorAll('.keyword-detail-row')]
+                .some(r => r.style.display !== 'none');
+            document.getElementById('keyword-detail-empty').style.display = anyVisible ? 'none' : '';
+        }
+        refreshKeywordUI();
 
         /* ---------- General images ---------- */
         function addImage() {
@@ -544,6 +560,18 @@ $positionOptions = range(1, 10);
                 <div class="col-md-1"><button type="button" class="btn btn-outline-danger w-100" onclick="this.closest('.image-row').remove()">×</button></div>
             </div>`);
             iIndex++;
+        }
+
+        /* ---------- Performance images ---------- */
+        function addPerformanceImage() {
+            document.getElementById('performance-rows').insertAdjacentHTML('beforeend', `
+    <div class="row g-2 mb-2 align-items-center performance-row">
+        <div class="col-md-4"><input name="performance_images[${pIndex}][title]" class="form-control" placeholder="Title (e.g. Clicks & Impressions)"></div>
+        <div class="col-md-5"><input type="file" name="performance_images[${pIndex}][file]" accept="image/*" class="form-control"></div>
+        <div class="col-md-2"></div>
+        <div class="col-md-1"><button type="button" class="btn btn-outline-danger w-100" onclick="this.closest('.performance-row').remove()">×</button></div>
+    </div>`);
+            pIndex++;
         }
 
         /* ---------- On-Page custom items ---------- */
@@ -649,6 +677,4 @@ $positionOptions = range(1, 10);
             syncPeriod();
         })();
     </script>
-</body>
-
-</html>
+@include('admin.partials.footer')

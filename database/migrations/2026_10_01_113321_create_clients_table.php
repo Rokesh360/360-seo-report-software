@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('phone', 30)->nullable();
             $table->boolean('status')->default(true);   // 1 = active, 0 = inactive
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

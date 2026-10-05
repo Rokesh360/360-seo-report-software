@@ -1,27 +1,9 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Overview | {{ config('app.name') }}</title>
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|space-grotesk:500,600,700" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="admin-page">
-    <div class="admin-shell">
-        @include('admin.partials.sidebar', ['active' => 'overview'])
-
-        <main class="admin-main" id="overview">
-            <header class="topbar">
-                <div class="breadcrumbs"><span>Workspace</span><span class="crumb-slash">/</span><strong>Overview</strong></div>
-                <div class="topbar-right">
-                    <span class="report-period"><span class="period-dot"></span> September 2026</span>
-                    <span class="topbar-divider"></span>
-                    <span class="avatar-small">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
-                </div>
-            </header>
+@include('admin.partials.header', [
+    'pageTitle' => 'Overview',
+    'active' => 'overview',
+    'periodLabel' => 'September 2026',
+    'mainId' => 'overview',
+])
 
             <div class="dashboard-content">
                 <section class="page-heading">
@@ -109,9 +91,4 @@
                         </table>
                     </div>
                 </section>
-                <footer class="dashboard-footer"><span>Report generated October 1, 2026</span><span>Data shown is illustrative</span></footer>
-            </div>
-        </main>
-    </div>
-</body>
-</html>
+@include('admin.partials.footer')

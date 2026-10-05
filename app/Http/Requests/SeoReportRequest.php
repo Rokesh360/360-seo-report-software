@@ -22,15 +22,15 @@ class SeoReportRequest extends FormRequest
             'on_page_items'    => 'nullable|array',
             'on_page_items.*'  => 'string|max:255',
 
-            'backlinks_items'   => 'nullable|array',              
-            'backlinks_items.*' => 'string|max:255',              
+            'backlinks_items'   => 'nullable|array',
+            'backlinks_items.*' => 'string|max:255',
 
             'seo_score_image'  => [$this->isMethod('post') ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
 
-            'total_clicks'      => 'required|integer|min:0',
-            'total_impressions' => 'required|integer|min:0',
-            'average_ctr'       => 'required|numeric|between:0,100',
-            'average_position'  => 'required|numeric|min:0',
+            'performance_images'            => 'nullable|array',
+            'performance_images.*.title'    => 'nullable|string|max:255',
+            'performance_images.*.existing' => 'nullable|string|max:500',
+            'performance_images.*.file'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
 
             'keywords'                 => 'required|array|min:1',
             'keywords.*.keyword'       => 'required|string|max:255',
@@ -62,6 +62,8 @@ class SeoReportRequest extends FormRequest
             'images.*.file.required_without' => 'Image row :position needs an image file.',
             'images.*.file.image'         => 'Image row :position must be an image.',
             'images.*.file.max'           => 'Image row :position must not exceed 4 MB.',
+            'performance_images.*.file.image' => 'Performance image row :position must be an image.',
+            'performance_images.*.file.max'   => 'Performance image row :position must not exceed 4 MB.',
         ];
     }
 }

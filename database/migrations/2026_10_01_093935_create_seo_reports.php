@@ -24,11 +24,8 @@ return new class extends Migration
 
             $table->string('seo_score_image')->nullable();
 
-            $table->unsignedInteger('total_clicks')->default(0);
-            $table->unsignedInteger('total_impressions')->default(0);
-
-            $table->decimal('average_ctr', 5, 2)->default(0);
-            $table->decimal('average_position', 5, 2)->default(0);
+            $table->json('performance_images')->nullable();
+            $table->json('backlinks_items')->nullable();
 
             $table->json('keywords')->nullable();
             $table->json('queries')->nullable();

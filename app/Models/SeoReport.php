@@ -17,6 +17,7 @@ class SeoReport extends Model
         'keywords'      => 'array',
         'backlinks_items' => 'array', 
         'images'        => 'array',
+        'performance_images' => 'array',
     ];
 
     public function client(): BelongsTo

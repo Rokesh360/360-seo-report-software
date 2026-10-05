@@ -10,7 +10,7 @@ class SeoReportRepository
 {
     public function paginate(int $perPage = 10): LengthAwarePaginator
     {
-        return SeoReport::with('client')->latest()->paginate($perPage);
+        return SeoReport::with('client')->latest('id')->paginate($perPage);
     }
 
     public function find(int $id): SeoReport
@@ -28,6 +28,7 @@ class SeoReportRepository
         $report = SeoReport::findOrFail($id);
 
         $oldImages      = collect($report->images ?? [])->pluck('path');
+        $oldPerformanceImages = collect($report->performance_images ?? [])->pluck('path');
         $oldScoreImage  = $report->seo_score_image;
 
         // Collect keyword-level image paths before update
@@ -51,6 +52,9 @@ class SeoReportRepository
         // Remove keyword screenshots that were removed
         $keptKeywordImages = collect($payload['keywords'])->pluck('image_existing')->filter();
         $oldKeywordImages->diff($keptKeywordImages)->each(fn($path) => Storage::disk('public')->delete($path));
+
+        $keptPerformance = collect($payload['performance_images'])->pluck('path');
+        $oldPerformanceImages->diff($keptPerformance)->each(fn($path) => Storage::disk('public')->delete($path));
 
         return $report;
     }
@@ -105,6 +109,19 @@ class SeoReportRepository
 
         // General images
         $data['images'] = collect($data['images'] ?? [])
+            ->map(function ($img) {
+                $path = isset($img['file'])
+                    ? $img['file']->store('seo-reports', 'public')
+                    : ($img['existing'] ?? null);
+
+                return $path ? ['title' => $img['title'] ?? '', 'path' => $path] : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        // Google performance images
+        $data['performance_images'] = collect($data['performance_images'] ?? [])
             ->map(function ($img) {
                 $path = isset($img['file'])
                     ? $img['file']->store('seo-reports', 'public')
