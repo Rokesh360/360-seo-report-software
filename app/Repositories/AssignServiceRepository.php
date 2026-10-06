@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Repositories;
+
+use App\Models\AssignService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+
+class AssignServiceRepository
+{
+    public function paginate(int $perPage = 15): LengthAwarePaginator
+    {
+        return AssignService::with(['client', 'service'])
+            ->latest()
+            ->paginate($perPage);
+    }
+
+    public function all(): Collection
+    {
+        return AssignService::with(['client', 'service'])->latest()->get();
+    }
+
+    public function find(int $id): AssignService
+    {
+        return AssignService::with(['client', 'service'])->findOrFail($id);
+    }
+
+    public function create(array $data): AssignService
+    {
+        return AssignService::create($data);
+    }
+
+    public function update(AssignService $assignService, array $data): AssignService
+    {
+        $assignService->update($data);
+
+        return $assignService->fresh(['client', 'service']);
+    }
+
+    public function delete(AssignService $assignService): bool
+    {
+        return $assignService->delete();
+    }
+}

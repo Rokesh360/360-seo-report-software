@@ -17,4 +17,9 @@ class Client extends Model
     {
         return $this->hasMany(SeoReport::class);
     }
+
+    public function socialMediaReports(): HasMany
+    {
+        return $this->hasMany(SocialMediaReport::class);
+    }
 }

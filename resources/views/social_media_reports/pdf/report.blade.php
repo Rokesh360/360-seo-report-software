@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ $single ? 'Social Media Report' : 'All Social Media Reports' }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: DejaVu Sans, Arial, sans-serif;
+            font-size: 11px;
+            color: #1f2937;
+            margin: 0;
+            line-height: 1.45;
+        }
+        .page { padding: 28px 32px; }
+
+        /* Cover (multi-report only) */
+        .cover { text-align: center; padding-top: 140px; }
+        .cover h1 { font-size: 28px; margin-bottom: 8px; color: #111827; }
+        .cover p  { color: #6b7280; margin: 4px 0; }
+        .cover .filters {
+            display: inline-block;
+            margin-top: 30px;
+            text-align: left;
+            border: 1px solid #e5e7eb;
+            padding: 14px 20px;
+            border-radius: 6px;
+            background: #f9fafb;
+            font-size: 11px;
+        }
+        .cover .filters strong { color: #111827; }
+
+        /* Header */
+        .pdf-header {
+            border-bottom: 3px solid #111827;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+        }
+        .pdf-header h1 {
+            font-size: 18px;
+            margin: 0 0 4px;
+            color: #111827;
+        }
+        .pdf-header .subtitle { font-size: 11px; color: #6b7280; }
+        .pdf-header .client {
+            font-size: 13px;
+            font-weight: bold;
+            color: #111827;
+            margin-top: 6px;
+        }
+
+        /* Sections */
+        .section { margin-bottom: 14px; page-break-inside: avoid; }
+        .section-title {
+            background: #111827;
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            padding: 6px 10px;
+            margin: 0 0 8px;
+        }
+
+        /* Meta grid */
+        .meta-grid { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .meta-grid td {
+            padding: 5px 8px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        .meta-grid .label {
+            background: #f9fafb;
+            font-weight: bold;
+            width: 26%;
+            color: #374151;
+        }
+
+        /* KPI grid */
+        .kpi-grid {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 6px;
+            margin-bottom: 10px;
+        }
+        .kpi-grid td {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+            padding: 10px 6px;
+        }
+        .kpi-grid .kpi-value {
+            font-size: 15px;
+            font-weight: bold;
+            color: #111827;
+            display: block;
+        }
+        .kpi-grid .kpi-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: #6b7280;
+            margin-top: 3px;
+            display: block;
+        }
+
+        /* Data tables */
+        table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        table.data th {
+            background: #111827;
+            color: #fff;
+            font-size: 10px;
+            text-transform: uppercase;
+            padding: 6px 8px;
+            text-align: left;
+            border: 1px solid #111827;
+        }
+        table.data td {
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        table.data tr:nth-child(even) td { background: #f9fafb; }
+
+        /* Text blocks */
+        .text-block { margin-bottom: 8px; }
+        .text-block .tb-label {
+            font-weight: bold;
+            color: #374151;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .text-block .tb-value { color: #1f2937; white-space: pre-wrap; }
+
+        /* Footer */
+        .pdf-footer {
+            position: fixed;
+            bottom: -10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 6px;
+        }
+        .page-break { page-break-after: always; }
+    </style>
+</head>
+<body>
+
+{{-- ============================================================
+     COVER PAGE — only when exporting multiple reports
+     ============================================================ --}}
+@if(!$single)
+    <div class="page cover">
+        <h1>Social Media Reports</h1>
+        <p>Combined Export</p>
+        <p>{{ now()->format('d M Y, H:i') }}</p>
+
+        @if(!empty(array_filter($filters ?? [])))
+            <div class="filters">
+                <strong>Filters applied:</strong><br>
+                @if(!empty($filters['report_type']))
+                    Report Type: {{ ucwords(str_replace('_', ' ', $filters['report_type'])) }}<br>
+                @endif
+                @if(!empty($filters['client_name']))
+                    Client: {{ $filters['client_name'] }}<br>
+                @endif
+                @if(!empty($filters['from']))
+                    From: {{ $filters['from'] }}<br>
+                @endif
+                @if(!empty($filters['to']))
+                    To: {{ $filters['to'] }}<br>
+                @endif
+            </div>
+        @endif
+
+        <p style="margin-top:30px; color:#374151;">
+            <strong>{{ $reports->count() }}</strong>
+            {{ \Illuminate\Support\Str::plural('report', $reports->count()) }} included
+        </p>
+    </div>
+@endif
+
+{{-- ============================================================
+     LOOP OVER EVERY REPORT
+     ============================================================ --}}
+@foreach($reports as $index => $report)
+
+    @php
+        $isAll           = $report->report_type === 'all';
+        $isWhatsApp      = $report->report_type === 'whatsapp_meta_ads';
+        $isLeadGen       = $report->report_type === 'lead_generation_ads';
+        $isEngagement    = $report->report_type === 'social_media_engagement';
+
+        // For "all": show every section that has data
+        $showWhatsApp    = $isWhatsApp   || ($isAll && (!is_null($report->total_conversations) || !is_null($report->total_enquiries) || !is_null($report->whatsapp_clicks)));
+        $showLeadGen     = $isLeadGen    || ($isAll && (!is_null($report->total_leads)         || !is_null($report->form_submissions)  || !is_null($report->link_clicks)));
+        $showEngagement  = $isEngagement || ($isAll && (!is_null($report->total_engagement)   || !is_null($report->reactions)          || !is_null($report->comments)));
+
+        $showCreativeAudience = $showWhatsApp || $showLeadGen || $isAll;
+        $showTopPosts         = $showEngagement;
+
+        // Section numbering for "all"
+        $sectionNo = 0;
+
+        $creative = $report->creative_performance  ?? [];
+        $audience = $report->audience_performance ?? [];
+        $obs      = $report->key_observations     ?? [];
+        $highlight= $report->performance_highlights ?? [];
+        $summary  = $report->monthly_summary      ?? [];
+        $plan     = $report->next_month_plan      ?? [];
+        $campaignRows = $report->campaign_results ?? [];
+        $topPosts     = $report->top_posts        ?? [];
+        $content      = $report->content_analysis ?? [];
+    @endphp
+
+    <div class="page {{ !$loop->last ? 'page-break' : '' }}">
+
+        {{-- ---------- Header ---------- --}}
+        <div class="pdf-header">
+            <h1>
+                @if($isWhatsApp)        WhatsApp Meta Ads — Monthly Report
+                @elseif($isLeadGen)     Lead Generation Ads — Monthly Report
+                @elseif($isEngagement)  Social Media Engagement — Monthly Report
+                @elseif($isAll)         Combined Social Media Report
+                @else                   Social Media Report
+                @endif
+            </h1>
+
+            @if($isAll)
+                <div class="subtitle">
+                    WhatsApp Meta Ads &nbsp;+&nbsp; Lead Generation &nbsp;+&nbsp; Engagement
+                </div>
+            @endif
+
+            <div class="subtitle" style="margin-top:4px;">
+                {{ $report->reporting_period_start->format('d M Y') }}
+                &nbsp;—&nbsp;
+                {{ $report->reporting_period_end->format('d M Y') }}
+            </div>
+            <div class="client">
+                Client: {{ $report->client_name }}
+                @if(!$single)
+                    <span style="font-weight:normal;color:#6b7280;">
+                        &nbsp;•&nbsp; {{ $report->report_type_label }}
+                    </span>
+                @endif
+            </div>
+        </div>
+
+        {{-- ---------- Report Details ---------- --}}
+        <div class="section">
+            <h2 class="section-title">Report Details</h2>
+            <table class="meta-grid">
+                <tr>
+                    <td class="label">Platforms</td>
+                    <td>{{ $report->platforms ?? '—' }}</td>
+                    <td class="label">Objective</td>
+                    <td>{{ $report->campaign_objective ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Reporting Period</td>
+                    <td colspan="3">
+                        {{ $report->reporting_period_start->format('d M Y') }} —
+                        {{ $report->reporting_period_end->format('d M Y') }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        {{-- ============================================================
+             WHATSAPP META ADS SECTION
+             ============================================================ --}}
+        @if($showWhatsApp)
+            @php $sectionNo++; @endphp
+            <div class="section">
+                <h2 class="section-title">
+                    @if($isAll) {{ $sectionNo }}. @endif WhatsApp Meta Ads Performance
+                </h2>
+                <table class="kpi-grid">
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->total_conversations) }}</span><span class="kpi-label">Conversations</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->total_enquiries) }}</span><span class="kpi-label">Enquiries</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->whatsapp_clicks) }}</span><span class="kpi-label">WhatsApp Clicks</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->reach) }}</span><span class="kpi-label">Reach</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->impressions) }}</span><span class="kpi-label">Impressions</span></td>
+                        <td><span class="kpi-value">{{ number_format((float) $report->frequency, 2) }}</span><span class="kpi-label">Frequency</span></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </table>
+            </div>
+        @endif
+
+        {{-- ============================================================
+             LEAD GENERATION SECTION
+             ============================================================ --}}
+        @if($showLeadGen)
+            @php $sectionNo++; @endphp
+            <div class="section">
+                <h2 class="section-title">
+                    @if($isAll) {{ $sectionNo }}. @endif Lead Generation Performance
+                </h2>
+                <table class="kpi-grid">
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->total_leads) }}</span><span class="kpi-label">Total Leads</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->form_submissions) }}</span><span class="kpi-label">Form Submissions</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->link_clicks) }}</span><span class="kpi-label">Link Clicks</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->reach) }}</span><span class="kpi-label">Reach</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->impressions) }}</span><span class="kpi-label">Impressions</span></td>
+                        <td><span class="kpi-value">{{ number_format((float) $report->frequency, 2) }}</span><span class="kpi-label">Frequency</span></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </table>
+            </div>
+        @endif
+
+        {{-- ============================================================
+             ENGAGEMENT SECTION
+             ============================================================ --}}
+        @if($showEngagement)
+            @php $sectionNo++; @endphp
+            <div class="section">
+                <h2 class="section-title">
+                    @if($isAll) {{ $sectionNo }}. @endif Social Media Engagement
+                </h2>
+                <table class="kpi-grid">
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->total_engagement) }}</span><span class="kpi-label">Total Engagement</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->reactions) }}</span><span class="kpi-label">Reactions</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->comments) }}</span><span class="kpi-label">Comments</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->shares) }}</span><span class="kpi-label">Shares</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->saves) }}</span><span class="kpi-label">Saves</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->profile_visits) }}</span><span class="kpi-label">Profile Visits</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->new_followers) }}</span><span class="kpi-label">New Followers</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->impressions) }}</span><span class="kpi-label">Impressions</span></td>
+                    </tr>
+                </table>
+            </div>
+        @endif
+
+        {{-- ---------- Narrative: Overview & Focus ---------- --}}
+        @if($report->campaign_overview || $report->target_audience || $report->campaign_focus || $report->key_highlights)
+        <div class="section">
+            <h2 class="section-title">Overview &amp; Focus</h2>
+            @if($report->campaign_overview)
+                <div class="text-block"><span class="tb-label">Campaign Overview</span><span class="tb-value">{{ $report->campaign_overview }}</span></div>
+            @endif
+            @if($report->target_audience)
+                <div class="text-block"><span class="tb-label">Target Audience</span><span class="tb-value">{{ $report->target_audience }}</span></div>
+            @endif
+            @if($report->campaign_focus)
+                <div class="text-block"><span class="tb-label">Main Campaign Focus</span><span class="tb-value">{{ $report->campaign_focus }}</span></div>
+            @endif
+            @if($report->key_highlights)
+                <div class="text-block"><span class="tb-label">Key Highlights</span><span class="tb-value">{{ $report->key_highlights }}</span></div>
+            @endif
+        </div>
+        @endif
+
+        {{-- ---------- Campaign / Ad Set Results ---------- --}}
+        @if(!empty($campaignRows))
+        <div class="section">
+            <h2 class="section-title">Campaign / Ad Set Results</h2>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th style="width:35%;">Campaign / Ad Set</th>
+                        <th style="width:15%;">Result</th>
+                        <th style="width:15%;">Spend</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($campaignRows as $row)
+                        <tr>
+                            <td>{{ $row['name']   ?? '—' }}</td>
+                            <td>{{ $row['result'] ?? '—' }}</td>
+                            <td>{{ $row['spend']  ?? '—' }}</td>
+                            <td>{{ $row['note']   ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+
+        {{-- ---------- Top Posts (engagement only) ---------- --}}
+        @if($showTopPosts && !empty($topPosts))
+        <div class="section">
+            <h2 class="section-title">Top Performing Posts</h2>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th style="width:55%;">Post</th>
+                        <th style="width:20%;">Engagements</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($topPosts as $post)
+                        <tr>
+                            <td>{{ $post['title']       ?? '—' }}</td>
+                            <td>{{ $post['engagements'] ?? '—' }}</td>
+                            <td>{{ $post['type']        ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+
+        {{-- ---------- Content Analysis (engagement only) ---------- --}}
+        @if($showTopPosts && !empty(array_filter($content)))
+        <div class="section">
+            <h2 class="section-title">Content Analysis</h2>
+            <table class="meta-grid">
+                <tr>
+                    <td class="label">Best Content Type</td>
+                    <td>{{ $content['best_type'] ?? '—' }}</td>
+                    <td class="label">Most Engaging Topic</td>
+                    <td>{{ $content['engaging_topic'] ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Best Format</td>
+                    <td>{{ $content['best_format'] ?? '—' }}</td>
+                    <td class="label">Facebook vs Instagram</td>
+                    <td>{{ $content['fb_vs_ig'] ?? '—' }}</td>
+                </tr>
+                @if(!empty($content['audience_response']))
+                <tr>
+                    <td class="label">Audience Response</td>
+                    <td colspan="3">{{ $content['audience_response'] }}</td>
+                </tr>
+                @endif
+            </table>
+        </div>
+        @endif
+
+        {{-- ---------- Creative & Audience Performance ---------- --}}
+        @if($showCreativeAudience && (!empty(array_filter($creative)) || !empty(array_filter($audience))))
+        <div class="section">
+            <h2 class="section-title">Creative &amp; Audience Performance</h2>
+
+            @if(!empty(array_filter($creative)))
+            <table class="meta-grid">
+                @if(!empty($creative['best_creatives'])) <tr><td class="label">Best Creatives</td><td colspan="3">{{ $creative['best_creatives'] }}</td></tr> @endif
+                @if(!empty($creative['video_image']))    <tr><td class="label">Video / Image</td><td colspan="3">{{ $creative['video_image'] }}</td></tr>    @endif
+                @if(!empty($creative['ad_copy']))        <tr><td class="label">Ad Copy</td><td colspan="3">{{ $creative['ad_copy'] }}</td></tr>            @endif
+                @if(!empty($creative['cta']))            <tr><td class="label">CTA</td><td colspan="3">{{ $creative['cta'] }}</td></tr>                    @endif
+            </table>
+            @endif
+
+            @if(!empty(array_filter($audience)))
+            <table class="meta-grid">
+                @if(!empty($audience['audience']))   <tr><td class="label">Audience</td><td colspan="3">{{ $audience['audience'] }}</td></tr>     @endif
+                @if(!empty($audience['age_group']))  <tr><td class="label">Age Group</td><td colspan="3">{{ $audience['age_group'] }}</td></tr>   @endif
+                @if(!empty($audience['location']))   <tr><td class="label">Location</td><td colspan="3">{{ $audience['location'] }}</td></tr>     @endif
+                @if(!empty($audience['placement']))  <tr><td class="label">Placement</td><td colspan="3">{{ $audience['placement'] }}</td></tr>   @endif
+            </table>
+            @endif
+        </div>
+        @endif
+
+        {{-- ---------- Key Observations ---------- --}}
+        @if(!empty(array_filter($obs)) || !empty(array_filter($highlight)))
+        <div class="section">
+            <h2 class="section-title">Key Observations</h2>
+            <table class="meta-grid">
+                @if(!empty($obs['creative_attention']))      <tr><td class="label">Creative Attention</td><td colspan="3">{{ $obs['creative_attention'] }}</td></tr>       @endif
+                @if(!empty($obs['audience_response']))       <tr><td class="label">Audience Response</td><td colspan="3">{{ $obs['audience_response'] }}</td></tr>        @endif
+                @if(!empty($obs['placement_interaction']))   <tr><td class="label">Placement Interaction</td><td colspan="3">{{ $obs['placement_interaction'] }}</td></tr>@endif
+                @if(!empty($highlight['notes']))             <tr><td class="label">Performance Highlights</td><td colspan="3">{{ $highlight['notes'] }}</td></tr>        @endif
+            </table>
+        </div>
+        @endif
+
+        {{-- ---------- Monthly Summary ---------- --}}
+        @if(!empty(array_filter($summary)))
+        <div class="section">
+            <h2 class="section-title">Monthly Summary</h2>
+            <table class="meta-grid">
+                @if(!empty($summary['overall']))           <tr><td class="label">Overall Performance</td><td colspan="3">{{ $summary['overall'] }}</td></tr>          @endif
+                @if(!empty($summary['enquiry']))           <tr><td class="label">Enquiry / Lead Generation</td><td colspan="3">{{ $summary['enquiry'] }}</td></tr>    @endif
+                @if(!empty($summary['engagement']))        <tr><td class="label">Audience Engagement</td><td colspan="3">{{ $summary['engagement'] }}</td></tr>      @endif
+                @if(!empty($summary['brand_visibility']))  <tr><td class="label">Brand Visibility</td><td colspan="3">{{ $summary['brand_visibility'] }}</td></tr>  @endif
+            </table>
+        </div>
+        @endif
+
+        {{-- ---------- Next Month Plan ---------- --}}
+        @if(!empty(array_filter($plan)))
+        <div class="section">
+            <h2 class="section-title">Next Month Plan</h2>
+            <table class="meta-grid">
+                @foreach([
+                    'test_creatives'     => 'Test New Creatives',
+                    'audience_targeting' => 'Improve Audience Targeting',
+                    'retargeting'        => 'Retarget Interested Users',
+                    'messaging'          => 'Test Different Messaging',
+                    'high_performers'    => 'Focus on High-Performing Audiences',
+                    'quality_leads'      => 'Increase Quality Leads / Enquiries',
+                ] as $key => $label)
+                    @if(!empty($plan[$key]))
+                        <tr><td class="label">{{ $label }}</td><td colspan="3">{{ $plan[$key] }}</td></tr>
+                    @endif
+                @endforeach
+            </table>
+        </div>
+        @endif
+
+    </div>
+@endforeach
+
+<div class="pdf-footer">
+    Generated on {{ now()->format('d M Y, H:i') }} &nbsp;•&nbsp; {{ config('app.name') }}
+</div>
+
+</body>
+</html>

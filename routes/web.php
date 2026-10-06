@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Controllers\AssignServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\SeoReportController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\SocialMediaReportController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -27,4 +30,16 @@ Route::middleware('auth')->group(function () {
         ->name('seo-reports.pdf');
     Route::resource('seo-reports', SeoReportController::class)->except(['show']);
     Route::resource('clients', ClientController::class)->except(['show']);
+    Route::resource('social-media-reports', SocialMediaReportController::class)->except(['show']);
+    Route::get(
+        'social-media-reports/export-all-pdf',
+        [SocialMediaReportController::class, 'exportAllPdf']
+    )->name('social-media-reports.export-all-pdf');
+
+    Route::get(
+        'social-media-reports/{id}/pdf',
+        [SocialMediaReportController::class, 'exportPdf']
+    )->name('social-media-reports.pdf');
+    Route::resource('services', ServiceController::class);
+    Route::resource('assign-services', AssignServiceController::class);
 });

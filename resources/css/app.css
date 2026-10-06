@@ -2096,3 +2096,26 @@ select[multiple].form-select option:checked {
     background: #2563eb linear-gradient(0deg, #2563eb, #2563eb);
     color: #fff;
 }
+
+/* Group labels inside sidebar */
+.nav-group-label {
+    margin: 18px 10px 6px;
+    color: #9aa39d;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+/* First group label (Overview) – less top margin */
+.side-nav > .nav-group-label:first-child {
+    margin-top: 0;
+}
+
+/* Mobile: hide group labels */
+@media (max-width: 760px) {
+    .nav-group-label {
+        display: none;
+    }
+}

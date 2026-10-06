@@ -1,0 +1,49 @@
+@php $v = fn ($key, $default = '') => old($key, $service?->{$key} ?? $default); @endphp
+@include('admin.partials.header', [
+'pageTitle' => $title,
+'active' => 'services',
+'bodyClass' => 'admin-page report-page',
+'includeBootstrap' => true,
+])
+<div class="dashboard-content report-content">
+    <section class="page-heading report-page-heading">
+        <div>
+            <div class="eyebrow"><span class="status-dot status-dot-dark"></span> SERVICE DIRECTORY</div>
+            <h1>{{ $title }}</h1>
+            <p class="page-subtitle">Services are used to categorize and assign work to clients.</p>
+        </div>
+        <a href="{{ route('services.index') }}" class="button button-secondary">Back to services</a>
+    </section>
+
+    @if($errors->any())
+    <div class="report-validation" role="alert">
+        <strong>Please review the service details.</strong>
+        <ul>@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+    </div>
+    @endif
+
+    <form action="{{ $action }}" method="POST" class="report-form client-form panel">
+        @csrf
+        @if($method !== 'POST') @method($method) @endif
+
+        <div class="client-fields row g-3">
+            <div class="col-12">
+                <label class="form-label" for="service-name">Service name</label>
+                <input id="service-name" name="name" class="form-control" value="{{ $v('name') }}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label" for="service-status">Status</label>
+                <select id="service-status" name="status" class="form-select">
+                    <option value="1" @selected($v('status', 1)==1)>Active</option>
+                    <option value="0" @selected($v('status', 1)==0)>Inactive</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="report-form-actions">
+            <button class="button button-primary" type="submit">Save service</button>
+            <a href="{{ route('services.index') }}" class="button button-secondary">Cancel</a>
+        </div>
+    </form>
+    @include('admin.partials.footer')
