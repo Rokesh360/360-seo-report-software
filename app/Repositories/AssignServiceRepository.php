@@ -10,19 +10,19 @@ class AssignServiceRepository
 {
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
-        return AssignService::with(['client', 'service'])
+        return AssignService::with(['client'])       // ← 'service' removed
             ->latest()
             ->paginate($perPage);
     }
 
     public function all(): Collection
     {
-        return AssignService::with(['client', 'service'])->latest()->get();
+        return AssignService::with(['client'])->latest()->get();
     }
 
     public function find(int $id): AssignService
     {
-        return AssignService::with(['client', 'service'])->findOrFail($id);
+        return AssignService::with(['client'])->findOrFail($id);
     }
 
     public function create(array $data): AssignService
@@ -34,7 +34,7 @@ class AssignServiceRepository
     {
         $assignService->update($data);
 
-        return $assignService->fresh(['client', 'service']);
+        return $assignService->fresh(['client']);
     }
 
     public function delete(AssignService $assignService): bool

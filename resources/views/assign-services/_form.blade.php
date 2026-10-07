@@ -7,6 +7,13 @@
 
 @php
 $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
+
+// Multi-select: existing service IDs
+$selectedServiceIds = old('service_id', $assignService?->service_id ?? []);
+if (!is_array($selectedServiceIds)) {
+    $selectedServiceIds = $selectedServiceIds ? [(int) $selectedServiceIds] : [];
+}
+$selectedServiceIds = array_map('intval', $selectedServiceIds);
 @endphp
 
 <div class="dashboard-content report-content">
@@ -14,7 +21,7 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
         <div>
             <h1>{{ $title }}</h1>
             <p class="page-subtitle">
-                Select a client and service, then set the validity period.
+                Select a client and service(s), then set the validity period.
             </p>
         </div>
         <a href="{{ route('assign-services.index') }}" class="button button-secondary">
@@ -40,6 +47,8 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
         <div class="card mb-3">
             <div class="card-header">Assignment Details</div>
             <div class="card-body row g-3">
+
+                {{-- Client --}}
                 <div class="col-md-6">
                     <label class="form-label">Client</label>
                     <select name="client_id"
@@ -55,21 +64,41 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
                     @error('client_id')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
+                {{-- Service multi-select --}}
                 <div class="col-md-6">
-                    <label class="form-label">Service</label>
-                    <select name="service_id"
-                        class="form-select @error('service_id') is-invalid @enderror" required>
-                        <option value="">-- Select Service --</option>
-                        @foreach($services as $service)
-                        <option value="{{ $service->id }}"
-                            @selected(old('service_id', $assignService?->service_id ?? '') == $service->id)>
-                            {{ $service->name }}
-                        </option>
-                        @endforeach
-                    </select>
+                    <label class="form-label">
+                        Service
+                    </label>
+
+                    <div class="multi-select" id="serviceMultiSelect">
+                        <button type="button" class="multi-select-trigger" id="serviceTrigger">
+                            <span id="serviceTriggerLabel">-- Select Service(s) --</span>
+                            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+                                <path d="M6 8l4 4 4-4" fill="none" stroke="currentColor"
+                                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+
+                        <div class="multi-select-panel" id="servicePanel">
+                            @forelse($services as $service)
+                                <label class="multi-select-option">
+                                    <input type="checkbox"
+                                           name="service_id[]"
+                                           value="{{ $service->id }}"
+                                           @checked(in_array((int) $service->id, $selectedServiceIds, true))>
+                                    <span>{{ $service->name }}</span>
+                                </label>
+                            @empty
+                                <div class="multi-select-empty">No services available.</div>
+                            @endforelse
+                        </div>
+                    </div>
+
                     @error('service_id')<span class="field-error">{{ $message }}</span>@enderror
+                    @error('service_id.*')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
+                {{-- Title --}}
                 <div class="col-12">
                     <label class="form-label">Title</label>
                     <input type="text" name="title"
@@ -79,6 +108,7 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
                     @error('title')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
+                {{-- From / To --}}
                 <div class="col-md-6">
                     <label class="form-label">From Date</label>
                     <input type="date" name="from_date" id="from_date"
@@ -97,6 +127,7 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
                     @error('to_date')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
+                {{-- Description --}}
                 <div class="col-12">
                     <label class="form-label">Description</label>
                     <textarea name="description" rows="4"
@@ -105,6 +136,7 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
                     @error('description')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
+                {{-- Status --}}
                 <div class="col-md-6">
                     <label class="form-label">Status</label>
                     <select name="status"
@@ -113,6 +145,7 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
                         <option value="0" @selected(old('status', $assignService?->status ?? 1) == 0)>Inactive</option>
                     </select>
                     @error('status')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
             </div>
         </div>
 
@@ -125,44 +158,70 @@ $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
     </form>
 </div>
 
+{{-- ============================================================ --}}
+{{-- SCRIPTS --}}
+{{-- ============================================================ --}}
 <script>
-    (function () {
-        const fromDate = document.getElementById('from_date');
-        const toDate   = document.getElementById('to_date');
+/* ---------- Service multi-select ---------- */
+(function () {
+    const trigger = document.getElementById('serviceTrigger');
+    const panel   = document.getElementById('servicePanel');
+    const label   = document.getElementById('serviceTriggerLabel');
+    const badge   = document.getElementById('serviceCountBadge');
 
-        if (!fromDate || !toDate) return;
+    if (!trigger || !panel) return;
 
-        /**
-         * When the user picks a "from date", the "to date" field:
-         *  1. Gets a minimum value set to the same day (blocks earlier dates).
-         *  2. If the current to_date is earlier than the new from_date, it is cleared.
-         *  3. The native date picker also disables earlier days automatically
-         *     because of the `min` attribute.
-         */
-        function syncToDateMin() {
-            const fromValue = fromDate.value;
+    function refresh() {
+        const checked = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'));
+        const count   = checked.length;
+        const labels  = checked.map(input => input.nextElementSibling.textContent.trim());
 
-            if (!fromValue) {
-                toDate.removeAttribute('min');
-                return;
-            }
+        label.textContent = count
+            ? labels.join(', ')
+            : '-- Select Service(s) --';
 
-            // Block all dates before the selected from_date
-            toDate.min = fromValue;
+        if (badge) badge.textContent = count + ' selected';
+    }
 
-            // If a to_date is already set but is now invalid, clear it
-            if (toDate.value && toDate.value < fromValue) {
-                toDate.value = '';
-            }
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.classList.toggle('is-open');
+    });
+
+    panel.addEventListener('change', refresh);
+
+    document.addEventListener('click', (e) => {
+        if (!panel.contains(e.target) && e.target !== trigger) {
+            panel.classList.remove('is-open');
         }
+    });
 
-        // Run on change of from_date
-        fromDate.addEventListener('change', syncToDateMin);
-        fromDate.addEventListener('input', syncToDateMin);
+    refresh();
+})();
 
-        // Run once on page load (handles old() values / edit mode)
-        syncToDateMin();
-    })();
+/* ---------- from_date / to_date sync ---------- */
+(function () {
+    const fromDate = document.getElementById('from_date');
+    const toDate   = document.getElementById('to_date');
+
+    if (!fromDate || !toDate) return;
+
+    function syncToDateMin() {
+        const fromValue = fromDate.value;
+        if (!fromValue) {
+            toDate.removeAttribute('min');
+            return;
+        }
+        toDate.min = fromValue;
+        if (toDate.value && toDate.value < fromValue) {
+            toDate.value = '';
+        }
+    }
+
+    fromDate.addEventListener('change', syncToDateMin);
+    fromDate.addEventListener('input', syncToDateMin);
+    syncToDateMin();
+})();
 </script>
 
 @include('admin.partials.footer')

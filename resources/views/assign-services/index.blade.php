@@ -1,9 +1,9 @@
 @include('admin.partials.header', [
-    'pageTitle' => 'Assign Services',
-    'documentTitle' => 'Assign Services',
-    'active' => 'assign-services',
-    'includeDataTables' => true,
-    'viteAssets' => ['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'],
+'pageTitle' => 'Assign Services',
+'documentTitle' => 'Assign Services',
+'active' => 'assign-services',
+'includeDataTables' => true,
+'viteAssets' => ['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'],
 ])
 
 <div class="dashboard-content report-content">
@@ -70,7 +70,7 @@
                         </td>
                         <td>
                             <span class="report-period-tag">
-                                {{ $assignService->service->name ?? '—' }}
+                                {{ $assignService->service_names ?? '—' }}
                             </span>
                         </td>
                         <td>
@@ -83,33 +83,37 @@
                             </span>
                         </td>
                         <td>
-                            <span @class([
-                                'client-status',
-                                'client-status-active' => $assignService->status,
+                            <span @class([ 'client-status' , 'client-status-active'=> $assignService->status,
                                 'client-status-inactive' => ! $assignService->status
-                            ])>
+                                ])>
                                 {{ $assignService->status ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
                         <td>
                             <div class="report-row-actions">
                                 <a href="{{ route('assign-services.edit', $assignService->id) }}"
-                                   class="report-edit-link">
+                                    class="report-edit-link">
                                     Edit
                                 </a>
 
                                 <form action="{{ route('assign-services.destroy', $assignService->id) }}"
-                                      method="POST"
-                                      onsubmit="return confirm('Delete this assigned service?')">
+                                    method="POST"
+                                    class="report-delete-form"
+                                    data-client-name="{{ $assignService->client->name ?? 'this client' }}"
+                                    data-service-name="{{ $assignService->service->name ?? 'this service' }}">
+
                                     @csrf
                                     @method('DELETE')
+
                                     <button type="submit"
-                                            class="report-delete-button"
-                                            aria-label="Delete assignment"
-                                            title="Delete">
+                                        class="report-delete-button"
+                                        aria-label="Delete assignment"
+                                        title="Delete">
+
                                         <svg viewBox="0 0 20 20" aria-hidden="true">
                                             <path d="M4 6h12M8 6V4h4v2m3 0-.7 10H5.7L5 6m3 3v4m4-4v4" />
                                         </svg>
+
                                     </button>
                                 </form>
                             </div>
@@ -126,23 +130,59 @@
 <script src="https://cdn.datatables.net/2.3.4/js/dataTables.min.js"></script>
 
 <script>
-$(document).ready(function () {
-    $('#assignServicesTable').DataTable({
-        pageLength: 10,
-        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-        order: [[0, 'asc']],
-        columnDefs: [{ orderable: false, searchable: false, targets: [0, 5] }],
-        language: {
-            search: '',
-            searchPlaceholder: 'Search assignments...',
-            lengthMenu: 'Show _MENU_ assignments',
-            info: 'Showing _START_ to _END_ of _TOTAL_ assignments',
-            infoEmpty: 'No assignments available',
-            zeroRecords: 'No matching assignments found',
-            emptyTable: 'No assignments available'
-        }
+    $(document).ready(function() {
+        $(document).on('submit', '.report-delete-form', function(e) {
+
+            e.preventDefault();
+
+            const form = this;
+            const clientName = form.dataset.clientName || 'this client';
+            const serviceName = form.dataset.serviceName || 'this service';
+
+            Swal.fire({
+                title: 'Delete assignment?',
+                html: `You are about to delete the <strong>${serviceName}</strong> assignment for <strong>${clientName}</strong>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                focusCancel: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+
+        });
+
+        $('#assignServicesTable').DataTable({
+            pageLength: 10,
+            lengthMenu: [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            order: [
+                [0, 'asc']
+            ],
+            columnDefs: [{
+                orderable: false,
+                searchable: false,
+                targets: [0, 5]
+            }],
+            language: {
+                search: '',
+                searchPlaceholder: 'Search assignments...',
+                lengthMenu: 'Show _MENU_ assignments',
+                info: 'Showing _START_ to _END_ of _TOTAL_ assignments',
+                infoEmpty: 'No assignments available',
+                zeroRecords: 'No matching assignments found',
+                emptyTable: 'No assignments available'
+            }
+        });
     });
-});
 </script>
 
 @include('admin.partials.footer')

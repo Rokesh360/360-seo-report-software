@@ -3,33 +3,99 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SocialMediaReportRequest;
+use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\SocialMediaReport;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class SocialMediaReportController extends Controller
 {
+    /* ============================================================
+     |  INDEX — client cards
+     ============================================================ */
     public function index()
     {
-        $reports = SocialMediaReport::with('client')
-            ->latest()
-            ->paginate(15);
+        $clients = Client::withCount('assignServices')
+            ->orderBy('name')
+            ->get();
 
-        return view('social_media_reports.index', compact('reports'));
+        return view('social_media_reports.index', compact('clients'));
     }
 
-    public function create()
+    /* ============================================================
+     |  Client services
+     ============================================================ */
+    public function clientServices(Client $client)
     {
-        // Load clients for the dropdown
-        $clients = Client::orderBy('name')->get(['id', 'name']);
+        $assignServices = AssignService::where('client_id', $client->id)
+            ->latest('from_date')
+            ->get();
 
-        return view('social_media_reports.create', compact('clients'));
+        return view('social_media_reports.client_services', compact('client', 'assignServices'));
+    }
+
+    public function assignServicesByClient(Client $client)
+    {
+        $rows = AssignService::where('client_id', $client->id)
+            ->orderByDesc('from_date')
+            ->get()
+            ->map(fn ($a) => [
+                'id'        => $a->id,
+                'title'     => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
+                'from_date' => optional($a->from_date)->format('Y-m-d'),
+                'to_date'   => optional($a->to_date)->format('Y-m-d'),
+            ]);
+
+        return response()->json($rows);
+    }
+
+    /* ============================================================
+     |  serviceMetrics — previous + today, with date-range guard
+     ============================================================ */
+    public function serviceMetrics(AssignService $assignService)
+    {
+        $assignService->load('client');
+
+        $previousReports = SocialMediaReport::whereJsonContains('assign_service_ids', $assignService->id)
+            ->whereDate('created_at', '<', Carbon::today())
+            ->orderByDesc('created_at')
+            ->get();
+
+        $todayReports = SocialMediaReport::whereJsonContains('assign_service_ids', $assignService->id)
+            ->whereDate('created_at', Carbon::today())
+            ->orderByDesc('id')
+            ->get();
+
+        $todayEntryMissing = $todayReports->isEmpty();
+
+        $canAddToday = ($assignService->status ?? true)
+            && Carbon::today()->betweenIncluded($assignService->from_date, $assignService->to_date);
+
+        return view('social_media_reports.service_metrics', compact(
+            'assignService',
+            'previousReports',
+            'todayReports',
+            'todayEntryMissing',
+            'canAddToday'
+        ));
+    }
+
+    /* ============================================================
+     |  create / store
+     ============================================================ */
+    public function create(Request $request)
+    {
+        $assignServices = AssignService::orderBy('id')->get();
+
+        $prefillId = $request->integer('assign_service_id') ?: null;
+
+        return view('social_media_reports.create', compact('assignServices', 'prefillId'));
     }
 
     public function store(SocialMediaReportRequest $request)
     {
-        // No user_id injection — client_id comes from the form
         SocialMediaReport::create($request->validated());
 
         return redirect()
@@ -37,13 +103,16 @@ class SocialMediaReportController extends Controller
             ->with('success', 'Report created successfully.');
     }
 
+    /* ============================================================
+     |  edit / update / destroy
+     ============================================================ */
     public function edit(SocialMediaReport $socialMediaReport)
     {
-        $clients = Client::orderBy('name')->get(['id', 'name']);
+        $assignServices = AssignService::orderBy('id')->get();
 
         return view('social_media_reports.edit', [
-            'report'  => $socialMediaReport,
-            'clients' => $clients,
+            'report'         => $socialMediaReport,
+            'assignServices' => $assignServices,
         ]);
     }
 
@@ -65,9 +134,12 @@ class SocialMediaReportController extends Controller
             ->with('success', 'Report moved to trash.');
     }
 
+    /* ============================================================
+     |  PDF exports
+     ============================================================ */
     public function exportPdf(int $id)
     {
-        $report = SocialMediaReport::with('client')->findOrFail($id);
+        $report = SocialMediaReport::findOrFail($id);
 
         $pdf = Pdf::loadView('social_media_reports.pdf.report', [
             'reports' => collect([$report]),
@@ -80,50 +152,41 @@ class SocialMediaReportController extends Controller
 
     public function exportAllPdf(Request $request)
     {
-        $query = SocialMediaReport::with('client');
-
-        if ($request->filled('report_type')) {
-            $query->where('report_type', $request->string('report_type'));
-        }
-
-        // Filter by client_id instead of client_name
-        if ($request->filled('client_id')) {
-            $query->where('client_id', $request->integer('client_id'));
-        }
+        $query = SocialMediaReport::query();
 
         if ($request->filled('from')) {
-            $query->whereDate('reporting_period_start', '>=', $request->date('from'));
+            $query->whereDate('created_at', '>=', $request->date('from'));
         }
         if ($request->filled('to')) {
-            $query->whereDate('reporting_period_end', '<=', $request->date('to'));
+            $query->whereDate('created_at', '<=', $request->date('to'));
         }
 
-        $reports = $query
-            ->join('clients', 'clients.id', '=', 'social_media_reports.client_id')
-            ->orderBy('clients.name')
-            ->orderBy('social_media_reports.reporting_period_start')
-            ->select('social_media_reports.*')
-            ->get();
+        $reports = $query->orderBy('created_at')->get();
 
         if ($reports->isEmpty()) {
             return back()->with('error', 'No reports found for the selected filters.');
         }
 
-        $filters = [
-            'report_type' => $request->input('report_type'),
-            'client_id'   => $request->input('client_id'),
-            'from'        => $request->input('from'),
-            'to'          => $request->input('to'),
-        ];
-
         $pdf = Pdf::loadView('social_media_reports.pdf.report', [
             'reports' => $reports,
             'single'  => false,
-            'filters' => $filters,
+            'filters' => $request->only(['from', 'to']),
         ])->setPaper('a4', 'portrait');
 
-        $filename = 'social-media-reports-all-' . now()->format('Ymd-His') . '.pdf';
+        return $pdf->download('social-media-reports-all-' . now()->format('Ymd-His') . '.pdf');
+    }
 
-        return $pdf->download($filename);
+    /* ============================================================
+     |  JSON list for assign-services multi-select
+     ============================================================ */
+    public function assignServicesList()
+    {
+        return AssignService::orderBy('id')
+            ->get()
+            ->map(fn ($a) => [
+                'id'    => $a->id,
+                'title' => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
+            ])
+            ->values();
     }
 }

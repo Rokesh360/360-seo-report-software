@@ -5,17 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class SocialMediaReport extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        //  No user_id, no client_name — client_id replaces both
-        'client_id',
-        'report_type',
-        'reporting_period_start',
-        'reporting_period_end',
+        'assign_service_ids',
         'platforms',
         'campaign_objective',
         'campaign_overview',
@@ -23,17 +20,12 @@ class SocialMediaReport extends Model
         'campaign_focus',
         'key_highlights',
 
-        // WhatsApp Meta Ads
         'total_conversations',
         'total_enquiries',
         'whatsapp_clicks',
-
-        // Lead Generation
         'total_leads',
         'form_submissions',
         'link_clicks',
-
-        // Engagement
         'total_engagement',
         'reactions',
         'comments',
@@ -41,13 +33,10 @@ class SocialMediaReport extends Model
         'saves',
         'profile_visits',
         'new_followers',
-
-        // Shared
         'reach',
         'impressions',
         'frequency',
 
-        // JSON
         'campaign_results',
         'creative_performance',
         'audience_performance',
@@ -60,8 +49,7 @@ class SocialMediaReport extends Model
     ];
 
     protected $casts = [
-        'reporting_period_start' => 'date',
-        'reporting_period_end'   => 'date',
+        'assign_service_ids'     => 'array',
 
         'campaign_results'       => 'array',
         'creative_performance'   => 'array',
@@ -74,26 +62,41 @@ class SocialMediaReport extends Model
         'next_month_plan'        => 'array',
     ];
 
-    /**  Client relation — replaces user() */
-    public function client()
+    /**
+     * Assign services attached to this report.
+     */
+    public function getAssignServicesAttribute(): Collection
     {
-        return $this->belongsTo(Client::class);
+        $ids = is_array($this->assign_service_ids)
+            ? array_filter($this->assign_service_ids)
+            : [];
+
+        if (empty($ids)) {
+            return collect();
+        }
+
+        return AssignService::whereIn('id', $ids)->get();
+    }
+
+    public function getServiceNamesAttribute(): string
+    {
+        return $this->assign_services
+            ->map(fn ($a) => $a->service_names)
+            ->filter()
+            ->implode(', ');
+    }
+
+    public function getClientNamesAttribute(): string
+    {
+        return $this->assign_services
+            ->map(fn ($a) => $a->client?->name)
+            ->filter()
+            ->unique()
+            ->implode(', ');
     }
 
     public function getReportTypeLabelAttribute(): string
     {
-        return match ($this->report_type) {
-            'whatsapp_meta_ads'       => 'WhatsApp Meta Ads Monthly Report',
-            'lead_generation_ads'     => 'Lead Generation Ads Monthly Report',
-            'social_media_engagement' => 'Social Media Engagement Monthly Report',
-            'all'                     => 'All Reports (WhatsApp + Lead Gen + Engagement)',
-            default                   => 'Social Media Report',
-        };
-    }
-
-    /** Convenience accessor — blade can still use $report->client_name */
-    public function getClientNameAttribute(): ?string
-    {
-        return $this->client?->name;
+        return $this->service_names ?: 'Social Media Report';
     }
 }

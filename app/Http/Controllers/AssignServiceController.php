@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignServiceRequest;
+use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\Service;
 use App\Repositories\AssignServiceRepository;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class AssignServiceController extends Controller
@@ -81,5 +83,38 @@ class AssignServiceController extends Controller
         return redirect()
             ->route('assign-services.index')
             ->with('success', 'Assigned service deleted successfully.');
+    }
+
+    public function lookup(Request $request)
+    {
+        $request->validate([
+            'client_id' => ['required', 'exists:clients,id'],
+            'date'      => ['required', 'date'],
+        ]);
+
+        $assignment = AssignService::with('service')
+            ->where('client_id', $request->integer('client_id'))
+            ->active()
+            ->coveringDate($request->date('date'))
+            ->orderByDesc('from_date')
+            ->first();
+
+        if (! $assignment) {
+            return response()->json([
+                'found'   => false,
+                'message' => 'No active service assignment found for this client on the selected date.',
+            ]);
+        }
+
+        return response()->json([
+            'found'       => true,
+            'id'          => $assignment->id,
+            'title'       => $assignment->title,
+            'service_ids' => $assignment->service_id,          // array
+            'services'    => $assignment->service_names,        // "SEO, Google Ads"
+            'from_date'   => $assignment->from_date?->format('Y-m-d'),
+            'to_date'     => $assignment->to_date?->format('Y-m-d'),
+            'duration'    => $assignment->duration,
+        ]);
     }
 }

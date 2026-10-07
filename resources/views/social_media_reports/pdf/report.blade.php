@@ -189,15 +189,22 @@
 @foreach($reports as $index => $report)
 
     @php
-        $isAll           = $report->report_type === 'all';
-        $isWhatsApp      = $report->report_type === 'whatsapp_meta_ads';
-        $isLeadGen       = $report->report_type === 'lead_generation_ads';
-        $isEngagement    = $report->report_type === 'social_media_engagement';
+        $legacyAll       = $report->report_type === 'all' && empty($report->report_types);
+        $selectedTypes   = $report->selected_report_types;
+        $isAll           = count($selectedTypes) > 1;
+        $isWhatsApp      = !$isAll && in_array('whatsapp_meta_ads', $selectedTypes, true);
+        $isLeadGen       = !$isAll && in_array('lead_generation_ads', $selectedTypes, true);
+        $isEngagement    = !$isAll && in_array('social_media_engagement', $selectedTypes, true);
 
-        // For "all": show every section that has data
-        $showWhatsApp    = $isWhatsApp   || ($isAll && (!is_null($report->total_conversations) || !is_null($report->total_enquiries) || !is_null($report->whatsapp_clicks)));
-        $showLeadGen     = $isLeadGen    || ($isAll && (!is_null($report->total_leads)         || !is_null($report->form_submissions)  || !is_null($report->link_clicks)));
-        $showEngagement  = $isEngagement || ($isAll && (!is_null($report->total_engagement)   || !is_null($report->reactions)          || !is_null($report->comments)));
+        $showWhatsApp    = $legacyAll
+            ? !is_null($report->total_conversations) || !is_null($report->total_enquiries) || !is_null($report->whatsapp_clicks)
+            : in_array('whatsapp_meta_ads', $selectedTypes, true);
+        $showLeadGen     = $legacyAll
+            ? !is_null($report->total_leads) || !is_null($report->form_submissions) || !is_null($report->link_clicks)
+            : in_array('lead_generation_ads', $selectedTypes, true);
+        $showEngagement  = $legacyAll
+            ? !is_null($report->total_engagement) || !is_null($report->reactions) || !is_null($report->comments)
+            : in_array('social_media_engagement', $selectedTypes, true);
 
         $showCreativeAudience = $showWhatsApp || $showLeadGen || $isAll;
         $showTopPosts         = $showEngagement;
@@ -231,14 +238,16 @@
 
             @if($isAll)
                 <div class="subtitle">
-                    WhatsApp Meta Ads &nbsp;+&nbsp; Lead Generation &nbsp;+&nbsp; Engagement
+                    {{ collect($selectedTypes)->map(fn ($type) => match ($type) {
+                        'whatsapp_meta_ads' => 'WhatsApp Meta Ads',
+                        'lead_generation_ads' => 'Lead Generation',
+                        'social_media_engagement' => 'Engagement',
+                    })->implode(' &nbsp;+&nbsp; ') }}
                 </div>
             @endif
 
             <div class="subtitle" style="margin-top:4px;">
-                {{ $report->reporting_period_start->format('d M Y') }}
-                &nbsp;—&nbsp;
-                {{ $report->reporting_period_end->format('d M Y') }}
+                Entry date: {{ $report->created_at?->format('d M Y') }}
             </div>
             <div class="client">
                 Client: {{ $report->client_name }}
@@ -261,10 +270,9 @@
                     <td>{{ $report->campaign_objective ?? '—' }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Reporting Period</td>
+                    <td class="label">Entry Date</td>
                     <td colspan="3">
-                        {{ $report->reporting_period_start->format('d M Y') }} —
-                        {{ $report->reporting_period_end->format('d M Y') }}
+                        {{ $report->created_at?->format('d M Y') }}
                     </td>
                 </tr>
             </table>

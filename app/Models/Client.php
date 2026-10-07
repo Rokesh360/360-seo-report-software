@@ -22,4 +22,9 @@ class Client extends Model
     {
         return $this->hasMany(SocialMediaReport::class);
     }
+
+    public function assignServices(): HasMany
+    {
+        return $this->hasMany(AssignService::class);
+    }
 }

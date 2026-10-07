@@ -11,24 +11,9 @@ return new class extends Migration
         Schema::create('social_media_reports', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('client_id')
-                  ->constrained('clients')
-                  ->cascadeOnDelete();
+            // Multi assign services stored as JSON
+            $table->json('assign_service_ids')->nullable();
 
-            $table->foreignId('service_id')
-                  ->constrained('services')
-                  ->cascadeOnDelete();
-
-
-            $table->enum('report_type', [
-                'whatsapp_meta_ads',
-                'lead_generation_ads',
-                'social_media_engagement',
-                'all',
-            ]);
-
-            $table->date('reporting_period_start');
-            $table->date('reporting_period_end');
             $table->string('platforms')->nullable();
             $table->string('campaign_objective')->nullable();
             $table->text('campaign_overview')->nullable();
@@ -47,7 +32,7 @@ return new class extends Migration
             $table->unsignedBigInteger('link_clicks')->nullable();
             $table->decimal('frequency', 8, 2)->nullable();
 
-            // Engagement metrics
+            // Engagement
             $table->unsignedBigInteger('total_engagement')->nullable();
             $table->unsignedBigInteger('reactions')->nullable();
             $table->unsignedBigInteger('comments')->nullable();

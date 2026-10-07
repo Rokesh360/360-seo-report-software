@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
 
         User::factory()->create([
             'name' => 'Admin',
-            'email' => 'admin@360seoteam.com',
+            'email' => 'admin@360degreeinfo.com',
             'password' => '123456789',
         ]);
     }

@@ -14,18 +14,19 @@ class SocialMediaReportRepository
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         return $this->model
-            ->with('client:id,name')   // client instead of user
-            ->when(!empty($filters['report_type']), fn ($q) => $q->where('report_type', $filters['report_type']))
-            ->when(!empty($filters['client_id']),   fn ($q) => $q->where('client_id', $filters['client_id']))
+            ->when(!empty($filters['assign_service_id']),
+                fn ($q) => $q->whereJsonContains('assign_service_ids', (int) $filters['assign_service_id']))
+            ->when(!empty($filters['from']),
+                fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
+            ->when(!empty($filters['to']),
+                fn ($q) => $q->whereDate('created_at', '<=', $filters['to']))
             ->latest()
             ->paginate($perPage);
     }
 
     public function find(int $id): SocialMediaReport
     {
-        return $this->model
-            ->with('client:id,name')
-            ->findOrFail($id);
+        return $this->model->findOrFail($id);
     }
 
     public function create(array $data): SocialMediaReport
