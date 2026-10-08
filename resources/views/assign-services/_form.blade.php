@@ -29,16 +29,6 @@ $selectedServiceIds = array_map('intval', $selectedServiceIds);
         </a>
     </section>
 
-    @if($errors->any())
-    <div class="report-validation" role="alert">
-        <ul>
-            @foreach($errors->all() as $error)
-            <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-    @endif
-
     <form action="{{ $action }}" method="POST" class="report-form" novalidate>
         @csrf
         @if($method !== 'POST') @method($method) @endif
@@ -125,6 +115,48 @@ $selectedServiceIds = array_map('intval', $selectedServiceIds);
                         value="{{ old('to_date', $assignService?->to_date?->format('Y-m-d') ?? '') }}"
                         required>
                     @error('to_date')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Platforms</label>
+                    <input name="platforms" class="form-control @error('platforms') is-invalid @enderror"
+                           value="{{ $v('platforms') }}">
+                    @error('platforms')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Campaign Objective</label>
+                    <input name="campaign_objective" class="form-control @error('campaign_objective') is-invalid @enderror"
+                           value="{{ $v('campaign_objective') }}">
+                    @error('campaign_objective')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Campaign Overview</label>
+                    <textarea name="campaign_overview" rows="2"
+                              class="form-control @error('campaign_overview') is-invalid @enderror">{{ $v('campaign_overview') }}</textarea>
+                    @error('campaign_overview')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Target Audience</label>
+                    <textarea name="target_audience" rows="2"
+                              class="form-control @error('target_audience') is-invalid @enderror">{{ $v('target_audience') }}</textarea>
+                    @error('target_audience')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Main Campaign Focus</label>
+                    <textarea name="campaign_focus" rows="2"
+                              class="form-control @error('campaign_focus') is-invalid @enderror">{{ $v('campaign_focus') }}</textarea>
+                    @error('campaign_focus')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Key Highlights</label>
+                    <textarea name="key_highlights" rows="2"
+                              class="form-control @error('key_highlights') is-invalid @enderror">{{ $v('key_highlights') }}</textarea>
+                    @error('key_highlights')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
                 {{-- Description --}}

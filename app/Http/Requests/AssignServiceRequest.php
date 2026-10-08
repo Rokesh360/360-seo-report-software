@@ -22,6 +22,24 @@ class AssignServiceRequest extends FormRequest
             'title'        => ['required', 'string', 'max:255'],
             'description'  => ['nullable', 'string'],
             'status'       => ['nullable', 'integer', 'in:0,1'],
+            'platforms'          => ['nullable', 'string', 'max:255'],
+            'campaign_objective' => ['nullable', 'string', 'max:255'],
+            'campaign_overview'  => ['nullable', 'string'],
+            'target_audience'    => ['nullable', 'string'],
+            'campaign_focus'     => ['nullable', 'string'],
+            'key_highlights'     => ['nullable', 'string'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'platforms'          => 'platforms',
+            'campaign_objective' => 'campaign objective',
+            'campaign_overview'  => 'campaign overview',
+            'target_audience'    => 'target audience',
+            'campaign_focus'     => 'main campaign focus',
+            'key_highlights'     => 'key highlights',
         ];
     }
 

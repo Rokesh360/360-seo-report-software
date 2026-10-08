@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SocialMediaReportRequest;
 use App\Models\AssignService;
+use App\Models\Service;
 use App\Models\Client;
 use App\Models\SocialMediaReport;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,6 +13,37 @@ use Illuminate\Http\Request;
 
 class SocialMediaReportController extends Controller
 {
+
+    private function reportTypesFor($reports, array $assignServices): array
+    {
+        $nameToType = [
+            'WhatsApp Meta Ads Monthly Report'       => 'whatsapp_meta_ads',
+            'Lead Generation Ads Monthly Report'     => 'lead_generation_ads',
+            'Social Media Engagement Monthly Report' => 'social_media_engagement',
+        ];
+
+        $serviceNames = Service::pluck('name', 'id');   // [id => name]
+        $result = [];
+
+        foreach ($reports as $report) {
+            $types = collect((array) $report->assign_service_ids)
+                ->map(fn($id) => $assignServices[(int) $id] ?? null)
+                ->filter()
+                ->flatMap(function ($as) {
+                    $ids = $as->service_id;
+                    return is_array($ids) ? $ids : array_filter([(int) $ids]);
+                })
+                ->map(fn($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $result[$report->id] = $types;
+        }
+
+        return $result;
+    }
     /* ============================================================
      |  INDEX — client cards
      ============================================================ */
@@ -41,14 +73,35 @@ class SocialMediaReportController extends Controller
         $rows = AssignService::where('client_id', $client->id)
             ->orderByDesc('from_date')
             ->get()
-            ->map(fn ($a) => [
-                'id'        => $a->id,
-                'title'     => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
-                'from_date' => optional($a->from_date)->format('Y-m-d'),
-                'to_date'   => optional($a->to_date)->format('Y-m-d'),
+            ->map(fn($a) => [
+                'id'                 => $a->id,
+                'title'              => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
+                'from_date'          => optional($a->from_date)->format('Y-m-d'),
+                'to_date'            => optional($a->to_date)->format('Y-m-d'),
+                'platforms'          => $a->platforms,
+                'campaign_objective' => $a->campaign_objective,
+                'campaign_overview'  => $a->campaign_overview,
+                'target_audience'    => $a->target_audience,
+                'campaign_focus'     => $a->campaign_focus,
+                'key_highlights'     => $a->key_highlights,
             ]);
 
         return response()->json($rows);
+    }
+
+    public function previousMetrics(AssignService $assignService)
+    {
+        $assignService->load('client');
+
+        $reports = SocialMediaReport::forAssignService($assignService->id)
+            ->whereDate('created_at', '<', Carbon::today())
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('social_media_reports.previous_metrics', [
+            'assignService' => $assignService,
+            'reports'       => $reports,
+        ]);
     }
 
     /* ============================================================
@@ -58,12 +111,12 @@ class SocialMediaReportController extends Controller
     {
         $assignService->load('client');
 
-        $previousReports = SocialMediaReport::whereJsonContains('assign_service_ids', $assignService->id)
+        $previousReports = SocialMediaReport::forAssignService($assignService->id)
             ->whereDate('created_at', '<', Carbon::today())
             ->orderByDesc('created_at')
             ->get();
 
-        $todayReports = SocialMediaReport::whereJsonContains('assign_service_ids', $assignService->id)
+        $todayReports = SocialMediaReport::forAssignService($assignService->id)
             ->whereDate('created_at', Carbon::today())
             ->orderByDesc('id')
             ->get();
@@ -140,12 +193,18 @@ class SocialMediaReportController extends Controller
     public function exportPdf(int $id)
     {
         $report = SocialMediaReport::findOrFail($id);
+        $reports = collect([$report]);
+        $assignServices = $this->assignServicesFor($reports);
 
         $pdf = Pdf::loadView('social_media_reports.pdf.report', [
-            'reports' => collect([$report]),
-            'single'  => true,
-            'filters' => [],
-        ])->setPaper('a4', 'portrait');
+            'reports'     => $reports,
+            'single'      => true,
+            'filters'     => [],
+            'assignServices' => $assignServices,
+            'reportTypes'    => $this->reportTypesFor($reports, $assignServices),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption(['isHtml5ParserEnabled' => true]);
 
         return $pdf->download('social-report-' . $report->id . '.pdf');
     }
@@ -168,12 +227,42 @@ class SocialMediaReportController extends Controller
         }
 
         $pdf = Pdf::loadView('social_media_reports.pdf.report', [
-            'reports' => $reports,
-            'single'  => false,
-            'filters' => $request->only(['from', 'to']),
-        ])->setPaper('a4', 'portrait');
+            'reports'     => $reports,
+            'single'      => false,
+            'filters'     => $request->only(['from', 'to']),
+            'assignServices' => $this->assignServicesFor($reports),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption(['isHtml5ParserEnabled' => true]);
 
         return $pdf->download('social-media-reports-all-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    /**
+     * Load assigned services by ID so PDF report details come from assignments.
+     */
+    private function assignServicesFor($reports): array
+    {
+        $ids = $reports
+            ->flatMap(function (SocialMediaReport $report) {
+                $ids = $report->assign_service_ids;
+
+                return is_array($ids) ? $ids : [];
+            })
+            ->filter(fn($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return AssignService::with('client')
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id')
+            ->all();
     }
 
     /* ============================================================
@@ -183,9 +272,15 @@ class SocialMediaReportController extends Controller
     {
         return AssignService::orderBy('id')
             ->get()
-            ->map(fn ($a) => [
-                'id'    => $a->id,
-                'title' => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
+            ->map(fn($a) => [
+                'id'                 => $a->id,
+                'title'              => $a->title ?: $a->service_names ?: ('Service #' . $a->id),
+                'platforms'          => $a->platforms,
+                'campaign_objective' => $a->campaign_objective,
+                'campaign_overview'  => $a->campaign_overview,
+                'target_audience'    => $a->target_audience,
+                'campaign_focus'     => $a->campaign_focus,
+                'key_highlights'     => $a->key_highlights,
             ])
             ->values();
     }

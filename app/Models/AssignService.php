@@ -23,6 +23,12 @@ class AssignService extends Model
         'title',
         'description',
         'status',
+        'platforms',
+        'campaign_objective',
+        'campaign_overview',
+        'target_audience',
+        'campaign_focus',
+        'key_highlights',
     ];
 
     protected $casts = [

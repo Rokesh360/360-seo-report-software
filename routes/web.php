@@ -100,4 +100,9 @@ Route::middleware('auth')->group(function () {
         [SocialMediaReportController::class, 'assignServicesList']
     )
         ->name('social-media-reports.assign-services');
+
+    Route::get(
+        'social-media-reports/assign-services/{assignService}/previous-metrics',
+        [SocialMediaReportController::class, 'previousMetrics']
+    )->name('social-media-reports.previous-metrics');
 });

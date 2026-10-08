@@ -115,6 +115,12 @@ class AssignServiceController extends Controller
             'from_date'   => $assignment->from_date?->format('Y-m-d'),
             'to_date'     => $assignment->to_date?->format('Y-m-d'),
             'duration'    => $assignment->duration,
+            'platforms'          => $assignment->platforms,
+            'campaign_objective' => $assignment->campaign_objective,
+            'campaign_overview'  => $assignment->campaign_overview,
+            'target_audience'    => $assignment->target_audience,
+            'campaign_focus'     => $assignment->campaign_focus,
+            'key_highlights'     => $assignment->key_highlights,
         ]);
     }
 }

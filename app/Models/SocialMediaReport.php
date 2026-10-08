@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,12 +14,6 @@ class SocialMediaReport extends Model
 
     protected $fillable = [
         'assign_service_ids',
-        'platforms',
-        'campaign_objective',
-        'campaign_overview',
-        'target_audience',
-        'campaign_focus',
-        'key_highlights',
 
         'total_conversations',
         'total_enquiries',
@@ -61,6 +56,14 @@ class SocialMediaReport extends Model
         'monthly_summary'        => 'array',
         'next_month_plan'        => 'array',
     ];
+
+    public function scopeForAssignService(Builder $query, int $assignServiceId): Builder
+    {
+        return $query->where(function (Builder $query) use ($assignServiceId) {
+            $query->whereJsonContains('assign_service_ids', $assignServiceId)
+                ->orWhereJsonContains('assign_service_ids', (string) $assignServiceId);
+        });
+    }
 
     /**
      * Assign services attached to this report.
