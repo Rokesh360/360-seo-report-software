@@ -8,9 +8,12 @@ use Illuminate\Support\Facades\Storage;
 
 class SeoReportRepository
 {
-    public function paginate(int $perPage = 10): LengthAwarePaginator
+    public function paginate(int $perPage = 10, ?int $clientId = null): LengthAwarePaginator
     {
-        return SeoReport::with('client')->latest('id')->paginate($perPage);
+        return SeoReport::with('client')
+            ->when($clientId, fn($query) => $query->where('client_id', $clientId))
+            ->latest('id')
+            ->paginate($perPage);
     }
 
     public function find(int $id): SeoReport

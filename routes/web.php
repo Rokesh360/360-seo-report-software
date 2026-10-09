@@ -3,6 +3,7 @@
 use App\Http\Controllers\AssignServiceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SeoReportController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SocialMediaReportController;
@@ -21,7 +22,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
 
-    Route::view('/dashboard', 'admin.dashboard')->name('dashboard');
+    // Route::view('/dashboard', 'admin.dashboard')->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     /* ============================================================
@@ -105,4 +107,10 @@ Route::middleware('auth')->group(function () {
         'social-media-reports/assign-services/{assignService}/previous-metrics',
         [SocialMediaReportController::class, 'previousMetrics']
     )->name('social-media-reports.previous-metrics');
+
+    Route::get(
+        'social-media-reports/service/{assignService}/pdf',
+        [SocialMediaReportController::class, 'exportServicePdf']
+    )
+        ->name('social-media-reports.service-pdf');
 });

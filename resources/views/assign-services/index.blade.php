@@ -34,6 +34,15 @@
     </div>
     @endif
 
+    @if($selectedClientId)
+    <div class="report-table-meta">
+        <div>
+            <strong>Assigned services</strong>
+            for {{ $clients->firstWhere('id', $selectedClientId)->name }}
+        </div>
+        <a href="{{ route('assign-services.index') }}" class="button button-secondary">Back to clients</a>
+    </div>
+
     <section class="panel report-table-panel" aria-label="Assigned services">
         <div class="report-table-meta">
             <div>
@@ -123,7 +132,38 @@
                 </tbody>
             </table>
         </div>
+
+        @if($assignServices->hasPages())
+        <div class="report-pagination">{{ $assignServices->links() }}</div>
+        @endif
     </section>
+    @else
+    <section aria-label="Select a client to view assigned services">
+        <!-- <div class="report-table-meta">
+            <div><strong>Select a client</strong> to view their assigned services</div>
+        </div> -->
+
+        <div class="client-card-grid">
+            @forelse($clients as $client)
+            <a href="{{ route('assign-services.index', ['client' => $client->id]) }}"
+                class="client-card">
+                <div class="client-card__avatar">
+                    {{ strtoupper(substr($client->name, 0, 1)) }}
+                </div>
+                <div class="client-card__body">
+                    <h3>{{ $client->name }}</h3>
+                    <p>{{ $client->assign_services_count }}
+                        {{ \Illuminate\Support\Str::plural('assignment', $client->assign_services_count) }}
+                    </p>
+                </div>
+                <span class="client-card__arrow" aria-hidden="true">→</span>
+            </a>
+            @empty
+            <p class="empty-state">No clients found. <a href="{{ route('clients.create') }}">Add one</a>.</p>
+            @endforelse
+        </div>
+    </section>
+    @endif
 </div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -158,7 +198,8 @@
 
         });
 
-        $('#assignServicesTable').DataTable({
+        if ($('#assignServicesTable').length) {
+            $('#assignServicesTable').DataTable({
             pageLength: 10,
             lengthMenu: [
                 [10, 25, 50, 100, -1],
@@ -170,7 +211,7 @@
             columnDefs: [{
                 orderable: false,
                 searchable: false,
-                targets: [0, 5]
+                targets: [0, 6]
             }],
             language: {
                 search: '',
@@ -181,7 +222,8 @@
                 zeroRecords: 'No matching assignments found',
                 emptyTable: 'No assignments available'
             }
-        });
+            });
+        }
     });
 </script>
 

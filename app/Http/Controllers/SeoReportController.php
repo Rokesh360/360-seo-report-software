@@ -6,6 +6,7 @@ use App\Http\Requests\SeoReportRequest;
 use App\Repositories\ClientRepository;
 use App\Repositories\SeoReportRepository;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 
 class SeoReportController extends Controller
 {
@@ -16,10 +17,17 @@ class SeoReportController extends Controller
     }
 
     // Table listing
-    public function index()
+    public function index(Request $request)
     {
+        $validated = $request->validate([
+            'client' => ['sometimes', 'integer', 'exists:clients,id'],
+        ]);
+        $clientId = isset($validated['client']) ? (int) $validated['client'] : null;
+
         return view('seo_reports.index', [
-            'reports' => $this->reports->paginate(),
+            'clients' => $this->clients->withSeoReportCounts(),
+            'selectedClientId' => $clientId,
+            'reports' => $this->reports->paginate(clientId: $clientId)->appends($request->query()),
         ]);
     }
 

@@ -2,230 +2,312 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Models\AssignService;
 use App\Models\Client;
-use App\Models\SeoReport;
+use App\Models\SocialMediaReport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // -------- Period selection (defaults to latest report month) --------
-        $latestReport = SeoReport::latest('reporting_period')->first();
+        $month    = $this->resolveMonth($request->query('month'));
+        $start    = $month->copy()->startOfMonth();
+        $end      = $month->copy()->endOfMonth();
+        $prevStart = $start->copy()->subMonthNoOverflow()->startOfMonth();
+        $prevEnd   = $prevStart->copy()->endOfMonth();
+        $clientId  = $request->integer('client_id') ?: null;
 
-        $period = $request->input('period'); // expected "2026-09"
-        if (! $period || ! preg_match('/^\d{4}-\d{2}$/', $period)) {
-            $period = $latestReport?->reporting_period
-                ? Carbon::parse($latestReport->reporting_period . '-01')->format('Y-m')
-                : now()->format('Y-m');
+        $assignServices = AssignService::with('client:id,name')->get();
+        $assignById     = $assignServices->keyBy('id');
+
+        // null = all clients, array = only these assign services
+        $scopedIds = $clientId
+            ? $assignServices->where('client_id', $clientId)->pluck('id')->map(fn ($i) => (int) $i)->all()
+            : null;
+
+        $current  = $this->reportsBetween($start, $end, $scopedIds);
+        $previous = $this->reportsBetween($prevStart, $prevEnd, $scopedIds);
+
+        $days   = $start->daysInMonth;
+        $daily  = $this->dailySeries($current, $days);
+        $nowT   = $this->totals($current);
+        $prevT  = $this->totals($previous);
+
+        /* ---------------- Metric cards ---------------- */
+        $cards = [];
+        foreach ([
+            'reach'       => ['Reach',              'green', 0],
+            'impressions' => ['Impressions',        'blue',  1],
+            'clicks'      => ['Clicks',             'amber', 2],
+            'leads'       => ['Leads & enquiries',  'coral', 3],
+        ] as $key => [$label, $color, $icon]) {
+            $cards[] = [
+                'label'  => $label,
+                'color'  => $color,
+                'icon'   => $icon,
+                'value'  => $this->shortNumber($nowT[$key]),
+                'change' => $prevT[$key] > 0
+                    ? round(($nowT[$key] - $prevT[$key]) / $prevT[$key] * 100, 1)
+                    : null,
+                'spark'  => $this->sparkHeights($daily[$key]),
+            ];
         }
 
-        $periodDate  = Carbon::createFromFormat('Y-m', $period);
-        $prevDate    = $periodDate->copy()->subMonth();
+        /* ---------------- Line chart ---------------- */
+        $chart = $this->buildChart($daily['clicks'], $daily['impressions'], $start);
 
-        // -------- Reports for this period and previous --------
-        $reports = SeoReport::with('client')
-            ->where('reporting_period', $periodDate->format('Y-m'))
-            ->get();
+        /* ---------------- Engagement donut ---------------- */
+        $donut = $this->buildDonut([
+            'Reactions' => [(int) $current->sum('reactions'), '#4b9a70'],
+            'Comments'  => [(int) $current->sum('comments'),  '#4a7fc1'],
+            'Shares'    => [(int) $current->sum('shares'),    '#d99a2b'],
+            'Saves'     => [(int) $current->sum('saves'),     '#e0715a'],
+        ]);
 
-        $prevReports = SeoReport::with('client')
-            ->where('reporting_period', $prevDate->format('Y-m'))
-            ->get();
-
-        // -------- Aggregate metrics --------
-        $clicks       = $this->sumMetric($reports, 'organic_clicks');
-        $impressions  = $this->sumMetric($reports, 'search_impressions');
-        $avgPosition  = $this->avgMetric($reports, 'average_position');
-        $keywords     = $this->sumMetric($reports, 'tracked_keywords');
-
-        $prevClicks      = $this->sumMetric($prevReports, 'organic_clicks');
-        $prevImpressions = $this->sumMetric($prevReports, 'search_impressions');
-        $prevPosition    = $this->avgMetric($prevReports, 'average_position');
-        $prevKeywords    = $this->sumMetric($prevReports, 'tracked_keywords');
-
-        // -------- Keyword table (flattened across reports) --------
-        $keywordRows = collect();
-        foreach ($reports as $report) {
-            foreach (($report->keywords ?? []) as $k) {
-                $keywordRows->push([
-                    'keyword'   => $k['keyword'] ?? '',
-                    'url'       => $report->client?->website ?? '',
-                    'position'  => $k['position'] ?? null,
-                    'change'    => $k['change'] ?? null,
-                    'volume'    => $k['volume'] ?? null,
-                    'visibility'=> $k['visibility'] ?? null,
-                ]);
-            }
-        }
-        $keywordRows = $keywordRows->filter(fn ($r) => $r['keyword'] !== '')
-            ->sortBy('position')
-            ->take(10)
-            ->values();
-
-        // -------- Chart data (daily clicks / impressions) --------
-        $chart = $this->buildChartSeries($reports, $periodDate);
-
-        // -------- Site health (derive from reports or fallback) --------
-        $healthScore = (int) round($reports->avg('site_health_score') ?? 92);
-        $health = [
-            'score'    => $healthScore,
-            'passed'   => (int) round($healthScore * 0.42),
-            'attention'=> max(0, 43 - (int) round($healthScore * 0.42) - 1),
-            'critical' => max(0, 43 - (int) round($healthScore * 0.42) - max(0, 43 - (int) round($healthScore * 0.42) - 1)),
-        ];
+        /* ---------------- Client performance table ---------------- */
+        $clientRows = $this->clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
 
         return view('admin.dashboard', [
-            'periodLabel'  => $periodDate->format('F Y'),
-            'periodRange'  => $periodDate->copy()->startOfMonth()->format('d M')
-                . ' — ' . $periodDate->copy()->endOfMonth()->format('d M Y'),
-            'periodValue'  => $period,
-            'clients'      => Client::orderBy('name')->get(),
-            'metrics'      => [
-                'clicks'      => $clicks,
-                'impressions' => $impressions,
-                'position'    => $avgPosition,
-                'keywords'    => $keywords,
-            ],
-            'deltas'       => [
-                'clicks'      => $this->pctChange($clicks, $prevClicks),
-                'impressions' => $this->pctChange($impressions, $prevImpressions),
-                'position'    => $avgPosition && $prevPosition ? round($prevPosition - $avgPosition, 1) : 0,
-                'keywords'    => $keywords - $prevKeywords,
-            ],
-            'keywordRows'  => $keywordRows,
+            'month'        => $month,
+            'start'        => $start,
+            'end'          => $end,
+            'periodLabel'  => $month->format('F Y'),
+            'greeting'     => now()->hour < 12 ? 'Good morning' : (now()->hour < 17 ? 'Good afternoon' : 'Good evening'),
+            'cards'        => $cards,
             'chart'        => $chart,
-            'health'       => $health,
+            'donut'        => $donut,
+            'clientRows'   => $clientRows,
+            'reportCount'  => $current->count(),
+            'monthOptions' => collect(range(0, 11))->map(fn ($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
+            'clients'      => Client::orderBy('name')->get(['id', 'name']),
+            'clientId'     => $clientId,
         ]);
     }
 
-    // ---------------- Helpers ----------------
+    /* ============================================================ */
 
-    private function sumMetric($reports, string $column): float
+    private function resolveMonth(?string $value): Carbon
     {
-        return (float) $reports->sum(fn ($r) => (float) ($r->{$column} ?? 0));
+        try {
+            return $value ? Carbon::createFromFormat('!Y-m', $value) : now()->startOfMonth();
+        } catch (\Throwable) {
+            return now()->startOfMonth();
+        }
     }
 
-    private function avgMetric($reports, string $column): ?float
+    private function reportsBetween(Carbon $from, Carbon $to, ?array $scopedIds): Collection
     {
-        $values = $reports->pluck($column)->filter(fn ($v) => $v !== null && $v !== '');
-        return $values->isEmpty() ? null : round($values->avg(), 1);
+        return SocialMediaReport::query()
+            ->whereBetween('created_at', [$from->toDateString(), $to->toDateString()])
+            ->get([
+                'id', 'assign_service_ids', 'created_at',
+                'reach', 'impressions', 'whatsapp_clicks', 'link_clicks',
+                'total_leads', 'total_enquiries',
+                'reactions', 'comments', 'shares', 'saves',
+            ])
+            ->filter(fn ($r) => $scopedIds === null
+                || array_intersect($scopedIds, array_map('intval', (array) $r->assign_service_ids)) !== []);
     }
 
-    private function pctChange($current, $previous): ?float
+    private function totals(Collection $r): array
     {
-        if (! $previous || $previous == 0) {
-            return $current > 0 ? 100.0 : null;
-        }
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
-
-    /**
-     * Build a smooth SVG path from stored daily points (if present),
-     * otherwise generate a gentle upward trend seeded by totals.
-     */
-    private function buildChartSeries($reports, Carbon $periodDate): array
-    {
-        $days = $periodDate->daysInMonth;
-
-        // Try to use a "chart_data" JSON column if you add one, e.g.:
-        // ['clicks' => [..30..], 'impressions' => [..30..]]
-        $clicksDaily = [];
-        $impressionsDaily = [];
-
-        foreach ($reports as $report) {
-            $data = $report->chart_data ?? null;
-            if (is_array($data)) {
-                foreach (($data['clicks'] ?? []) as $i => $v) {
-                    $clicksDaily[$i] = ($clicksDaily[$i] ?? 0) + (float) $v;
-                }
-                foreach (($data['impressions'] ?? []) as $i => $v) {
-                    $impressionsDaily[$i] = ($impressionsDaily[$i] ?? 0) + (float) $v;
-                }
-            }
-        }
-
-        // Fallback: synthesize a smooth rising curve from totals
-        if (empty($clicksDaily)) {
-            $totalClicks = $this->sumMetric($reports, 'organic_clicks') ?: 24860;
-            $totalImpr   = $this->sumMetric($reports, 'search_impressions') ?: 486200;
-
-            for ($i = 0; $i < $days; $i++) {
-                $t = $i / max(1, $days - 1);                 // 0 → 1
-                $wave = 1 + 0.06 * sin($i * 1.7);            // subtle wiggle
-                $clicksDaily[$i]      = ($totalClicks / $days) * (0.72 + 0.55 * $t) * $wave;
-                $impressionsDaily[$i] = ($totalImpr   / $days) * (0.70 + 0.60 * $t) * $wave;
-            }
-        }
-
-        ksort($clicksDaily);
-        ksort($impressionsDaily);
-
-        $maxClicks = max($clicksDaily ?: [1]);
-        $maxImpr   = max($impressionsDaily ?: [1]);
-
         return [
-            'clicksPath'      => $this->svgPath(array_values($clicksDaily), $maxClicks),
-            'clicksAreaPath'  => $this->svgAreaPath(array_values($clicksDaily), $maxClicks),
-            'impressionsPath' => $this->svgPath(array_values($impressionsDaily), $maxImpr),
-            'yMaxClicks'      => $this->humanNumber($maxClicks),
-            'yMidClicks'      => $this->humanNumber($maxClicks * 0.66),
-            'yLowClicks'      => $this->humanNumber($maxClicks * 0.33),
-            'xLabels'         => $this->xLabels($periodDate),
-            'pointIndex'      => (int) floor(count($clicksDaily) * 0.78),
+            'reach'       => (int) $r->sum('reach'),
+            'impressions' => (int) $r->sum('impressions'),
+            'clicks'      => (int) $r->sum('whatsapp_clicks') + (int) $r->sum('link_clicks'),
+            'leads'       => (int) $r->sum('total_leads') + (int) $r->sum('total_enquiries'),
         ];
     }
 
-    /** Convert a numeric series into an SVG cubic path across viewBox 0..760 x 0..180. */
-    private function svgPath(array $values, float $max): string
+    private function dailySeries(Collection $reports, int $days): array
     {
+        $s = [
+            'reach'       => array_fill(1, $days, 0),
+            'impressions' => array_fill(1, $days, 0),
+            'clicks'      => array_fill(1, $days, 0),
+            'leads'       => array_fill(1, $days, 0),
+        ];
+
+        foreach ($reports as $r) {
+            $d = $r->created_at->day;
+            $s['reach'][$d]       += (int) $r->reach;
+            $s['impressions'][$d] += (int) $r->impressions;
+            $s['clicks'][$d]      += (int) $r->whatsapp_clicks + (int) $r->link_clicks;
+            $s['leads'][$d]       += (int) $r->total_leads + (int) $r->total_enquiries;
+        }
+
+        return $s;
+    }
+
+    private function sparkHeights(array $daily, int $bars = 10): array
+    {
+        $values = array_values($daily);
         $n = count($values);
-        if ($n === 0) return '';
-        $w = 760; $h = 180; $top = 18;
+        $buckets = [];
 
-        $pts = [];
-        foreach ($values as $i => $v) {
-            $x = $n === 1 ? 0 : ($i / ($n - 1)) * $w;
-            $y = $top + (1 - ($v / max($max, 0.0001))) * ($h - $top);
-            $pts[] = [$x, $y];
+        for ($i = 0; $i < $bars; $i++) {
+            $from = (int) floor($i * $n / $bars);
+            $to   = (int) floor(($i + 1) * $n / $bars);
+            $buckets[] = array_sum(array_slice($values, $from, max(1, $to - $from)));
         }
 
-        $d = "M{$pts[0][0]} {$pts[0][1]}";
-        for ($i = 1; $i < $n; $i++) {
-            $prev = $pts[$i - 1];
-            $cur  = $pts[$i];
-            $cx1  = $prev[0] + ($cur[0] - $prev[0]) / 2;
-            $cx2  = $prev[0] + ($cur[0] - $prev[0]) / 2;
-            $d   .= " C{$cx1} {$prev[1]} {$cx2} {$cur[1]} {$cur[0]} {$cur[1]}";
+        $max = max($buckets);
+
+        return array_map(fn ($v) => $max > 0 ? max(8, (int) round($v / $max * 100)) : 8, $buckets);
+    }
+
+    private function buildChart(array $clicks, array $impressions, Carbon $start): array
+    {
+        $days = count($clicks);
+        $w = 760; $top = 18; $bottom = 180; $h = $bottom - $top;
+
+        $impStep = $this->niceStep(max($impressions) / 3);
+        $impMax  = $impStep * 3;
+        $clkMax  = max(max($clicks), 1);
+
+        $impPts = $clkPts = [];
+        foreach (range(1, $days) as $i) {
+            $x = ($i - 1) / ($days - 1) * $w;
+            $impPts[] = [$x, $bottom - ($impressions[$i] / $impMax) * $h];
+            $clkPts[] = [$x, $bottom - ($clicks[$i] / $clkMax) * $h];
         }
+
+        $clicksPath = $this->smoothPath($clkPts);
+        $peakDay    = array_search(max($clicks), $clicks, true);
+
+        $xLabels = collect([1, 6, 11, 16, 21, 26, $days])->unique()
+            ->map(fn ($d) => $start->copy()->day($d)->format('M d'))->all();
+
+        return [
+            'hasData'         => array_sum($clicks) + array_sum($impressions) > 0,
+            'impressionsPath' => $this->smoothPath($impPts),
+            'clicksPath'      => $clicksPath,
+            'areaPath'        => $clicksPath ? $clicksPath . sprintf(' L%.1F %d L0 %d Z', $w, $bottom, $bottom) : '',
+            'peak'            => max($clicks) > 0 ? $clkPts[$peakDay - 1] : null,
+            'peakClicks'      => $this->shortNumber(max($clicks)),
+            'peakImpressions' => $this->shortNumber(max($impressions)),
+            'yLabels'         => [
+                $this->shortNumber($impStep * 3),
+                $this->shortNumber($impStep * 2),
+                $this->shortNumber($impStep),
+                '0',
+            ],
+            'xLabels'         => $xLabels,
+        ];
+    }
+
+    /** Smooth line through points using horizontal-tangent cubic beziers (no overshoot). */
+    private function smoothPath(array $pts): string
+    {
+        if (count($pts) < 2) {
+            return '';
+        }
+
+        $d = sprintf('M%.1F %.1F', $pts[0][0], $pts[0][1]);
+        for ($i = 1; $i < count($pts); $i++) {
+            $cx = ($pts[$i - 1][0] + $pts[$i][0]) / 2;
+            $d .= sprintf(' C%.1F %.1F %.1F %.1F %.1F %.1F',
+                $cx, $pts[$i - 1][1], $cx, $pts[$i][1], $pts[$i][0], $pts[$i][1]);
+        }
+
         return $d;
     }
 
-    private function svgAreaPath(array $values, float $max): string
+    private function buildDonut(array $input): array
     {
-        $line = $this->svgPath($values, $max);
-        return $line . ' L760 180 L0 180 Z';
+        $total = array_sum(array_column($input, 0));
+        $r = 40;
+        $circ = 2 * M_PI * $r;
+        $offset = 0;
+        $slices = [];
+
+        foreach ($input as $label => [$value, $color]) {
+            if ($value <= 0 || $total <= 0) {
+                continue;
+            }
+            $len = $circ * $value / $total;
+            $slices[] = [
+                'label'  => $label,
+                'value'  => $value,
+                'color'  => $color,
+                'pct'    => round($value / $total * 100, 1),
+                'dash'   => sprintf('%.2F %.2F', $len, $circ - $len),
+                'offset' => sprintf('%.2F', -$offset),
+            ];
+            $offset += $len;
+        }
+
+        return ['r' => $r, 'total' => $total, 'totalLabel' => $this->shortNumber($total), 'slices' => $slices];
     }
 
-    private function humanNumber(float $n): string
+    private function clientRows(Collection $assignServices, Collection $assignById, Collection $reports, Carbon $start, Carbon $end, ?int $clientId): Collection
     {
-        if ($n >= 1000000) return round($n / 1000000, 1) . 'M';
-        if ($n >= 1000)    return round($n / 1000, $n >= 10000 ? 0 : 1) . 'K';
-        return (string) round($n);
+        $rows = [];
+
+        // Clients with an assignment overlapping this month (so "no entries" clients still show)
+        foreach ($assignServices as $a) {
+            if (! $a->client_id || ($clientId && $a->client_id !== $clientId)) {
+                continue;
+            }
+            if ($a->from_date && $a->to_date && $a->from_date->lte($end) && $a->to_date->gte($start)) {
+                $rows[$a->client_id] ??= $this->blankRow($a->client?->name);
+                $rows[$a->client_id]['services']++;
+            }
+        }
+
+        foreach ($reports as $r) {
+            $cids = collect((array) $r->assign_service_ids)
+                ->map(fn ($id) => $assignById[(int) $id]->client_id ?? null)
+                ->filter()->unique();
+
+            foreach ($cids as $cid) {
+                $rows[$cid] ??= $this->blankRow($assignById->firstWhere('client_id', $cid)?->client?->name);
+                $rows[$cid]['reports']++;
+                $rows[$cid]['reach']  += (int) $r->reach;
+                $rows[$cid]['clicks'] += (int) $r->whatsapp_clicks + (int) $r->link_clicks;
+                $rows[$cid]['last']    = max($rows[$cid]['last'], $r->created_at->toDateString());
+            }
+        }
+
+        $max = max(array_merge([0], array_column($rows, 'reach')));
+
+        return collect($rows)
+            ->map(function ($row) use ($max) {
+                $row['share']      = $max > 0 ? (int) round($row['reach'] / $max * 100) : 0;
+                $row['reachLabel'] = $this->shortNumber($row['reach']);
+                $row['lastLabel']  = $row['last'] ? Carbon::parse($row['last'])->format('d M') : 'No entries';
+                return $row;
+            })
+            ->sortByDesc('reach')->take(8)->values();
     }
 
-    private function xLabels(Carbon $period): array
+    private function blankRow(?string $name): array
     {
-        $days = $period->daysInMonth;
-        return [
-            $period->copy()->startOfMonth()->format('M d'),
-            $period->copy()->day(6)->format('M d'),
-            $period->copy()->day(11)->format('M d'),
-            $period->copy()->day(16)->format('M d'),
-            $period->copy()->day(21)->format('M d'),
-            $period->copy()->day(26)->format('M d'),
-            $period->copy()->endOfMonth()->format('M d'),
-        ];
+        return ['name' => $name ?: 'Unknown client', 'services' => 0, 'reports' => 0, 'reach' => 0, 'clicks' => 0, 'last' => ''];
+    }
+
+    private function niceStep(float $v): int
+    {
+        if ($v <= 0) {
+            return 1;
+        }
+        $p = 10 ** floor(log10($v));
+        foreach ([1, 2, 2.5, 5, 10] as $m) {
+            if ($v <= $m * $p) {
+                return (int) max(1, ceil($m * $p));
+            }
+        }
+        return (int) ceil(10 * $p);
+    }
+
+    private function shortNumber(int|float $n): string
+    {
+        $n = (float) $n;
+        if ($n >= 1_000_000) return rtrim(rtrim(number_format($n / 1_000_000, 1), '0'), '.') . 'M';
+        if ($n >= 1_000)     return rtrim(rtrim(number_format($n / 1_000, 1), '0'), '.') . 'K';
+        return number_format($n);
     }
 }

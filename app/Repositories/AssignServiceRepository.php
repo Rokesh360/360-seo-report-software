@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 class AssignServiceRepository
 {
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?int $clientId = null): LengthAwarePaginator
     {
         return AssignService::with(['client'])       // ← 'service' removed
+            ->when($clientId, fn($query) => $query->where('client_id', $clientId))
             ->latest()
             ->paginate($perPage);
     }

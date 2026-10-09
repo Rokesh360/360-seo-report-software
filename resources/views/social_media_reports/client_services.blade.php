@@ -35,8 +35,8 @@
                         <th style="width:60px;">S.No</th>
                         <th>Client Name</th>
                         <th>Title</th>
-                        <th style="width:230px;">Previous Metrics</th>
-                        <th style="width:220px;" class="text-center">Today Metrics</th>
+                        <th style="width:230px;">Metrics</th>
+                        <!-- <th style="width:220px;" class="text-center">Today Metrics</th> -->
                     </tr>
                 </thead>
                 <tbody>
@@ -90,15 +90,14 @@
                                    class="button button-secondary btn-previous-metrics"
                                    title="View all previous metrics">
                                     <span>
-                                        Previous Metrics
-                                        <small>({{ $previousReports->count() }})</small>
+                                        Metrics
                                     </span>
                                     <span class="btn-arrow" aria-hidden="true">→</span>
                                 </a>
                             </td>
 
                             {{-- Today Metrics column: Edit / Delete / Add --}}
-                            <td>
+                            <!-- <td>
                                 @if($todayEntryMissing && $canAddToday)
                                     <div class="today-actions">
                                         <a href="{{ route('social-media-reports.create', ['assign_service_id' => $assignService->id]) }}"
@@ -140,7 +139,7 @@
                                         </div>
                                     @endforeach
                                 @endif
-                            </td>
+                            </td> -->
                         </tr>
 
                     @empty

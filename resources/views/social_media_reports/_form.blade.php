@@ -54,6 +54,9 @@ $showWa = in_array('whatsapp_meta_ads',       $activeTypes, true);
 $showLg = in_array('lead_generation_ads',     $activeTypes, true);
 $showEn = in_array('social_media_engagement', $activeTypes, true);
 $leadOrWhatsappActive = $showWa || $showLg;
+$formAction = $action . (request()->filled('date') && ! $report
+    ? '?date=' . urlencode(request('date'))
+    : '');
 @endphp
 
 <div class="dashboard-content report-content">
@@ -66,8 +69,8 @@ $leadOrWhatsappActive = $showWa || $showLg;
         <a href="{{ route('social-media-reports.index') }}" class="button button-secondary">Back to reports</a>
     </section>
 
-    <form action="{{ $action }}" method="POST" enctype="multipart/form-data"
-          class="report-form" novalidate id="socialReportForm">
+    <form action="{{ $formAction }}" method="POST" enctype="multipart/form-data"
+      class="report-form" novalidate id="socialReportForm">
         @csrf
         @if($method !== 'POST') @method($method) @endif
 

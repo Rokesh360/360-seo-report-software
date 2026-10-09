@@ -19,12 +19,20 @@ class AssignServiceController extends Controller
         //
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $assignServices = $this->repository->paginate(15);
+        $validated = $request->validate([
+            'client' => ['sometimes', 'integer', 'exists:clients,id'],
+        ]);
+        $clientId = isset($validated['client']) ? (int) $validated['client'] : null;
+        $clients = Client::withCount('assignServices')->orderBy('name')->get();
+        $assignServices = $this->repository->paginate(15, $clientId)
+            ->appends($request->query());
 
         return view('assign-services.index', [
             'assignServices' => $assignServices,
+            'clients'        => $clients,
+            'selectedClientId' => $clientId,
             'active'         => 'assign-services',
         ]);
     }

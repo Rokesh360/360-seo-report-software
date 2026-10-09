@@ -32,7 +32,7 @@ class SocialMediaReportRequest extends FormRequest
         if (is_array($assignmentIds)) {
             $this->merge([
                 'assign_service_ids' => array_map(
-                    fn ($id) => filter_var($id, FILTER_VALIDATE_INT) !== false ? (int) $id : $id,
+                    fn($id) => filter_var($id, FILTER_VALIDATE_INT) !== false ? (int) $id : $id,
                     $assignmentIds
                 ),
             ]);
@@ -255,14 +255,23 @@ class SocialMediaReportRequest extends FormRequest
         return $rules;
     }
 
+    public function reportDate(): ?Carbon
+    {
+        try {
+            return Carbon::createFromFormat('!Y-m-d', (string) $this->query('date'));
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     /* --------------------------------------------------------------
      |  Resolve which report types the selected assignments require
      -------------------------------------------------------------- */
     private function selectedReportTypes(): array
     {
         $assignmentIds = collect((array) $this->input('assign_service_ids', []))
-            ->filter(fn ($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
-            ->map(fn ($id) => (int) $id)
+            ->filter(fn($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -274,7 +283,7 @@ class SocialMediaReportRequest extends FormRequest
             ->whereIn('id', $assignmentIds)
             ->get(['service_id'])
             ->pluck('service_id')
-            ->flatMap(fn ($ids) => is_array($ids) ? $ids : array_filter([(int) $ids]))
+            ->flatMap(fn($ids) => is_array($ids) ? $ids : array_filter([(int) $ids]))
             ->filter()
             ->unique()
             ->values();
@@ -288,7 +297,7 @@ class SocialMediaReportRequest extends FormRequest
         return Service::query()
             ->whereIn('id', $serviceIds)
             ->pluck('name')
-            ->map(fn ($name) => $serviceNameToType[$name] ?? null)
+            ->map(fn($name) => $serviceNameToType[$name] ?? null)
             ->filter()
             ->unique()
             ->values()
@@ -320,27 +329,35 @@ class SocialMediaReportRequest extends FormRequest
                 return;
             }
 
-            $today = Carbon::today();
+            $date = $this->reportDate();
+    
+            if (! $date ) {
+                $v->errors()->add(
+                    'assign_service_ids',
+                    'Invalid report date. Please open this form from the Previous Metrics page.'
+                );
+                return;
+            }
 
-            $eligibleIds = AssignService::coveringDate($today)
+            $eligibleIds = AssignService::coveringDate($date)
                 ->whereIn('id', $ids)
                 ->pluck('id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->all();
 
             if (count($eligibleIds) !== count($ids)) {
                 $v->errors()->add(
                     'assign_service_ids',
-                    'Today must fall within the date range of every selected assign service to submit this report.'
+                    'This date must fall within the date range of every selected assign service.'
                 );
                 return;
             }
 
             $alreadyReported = SocialMediaReport::query()
-                ->whereDate('created_at', $today)
+                ->whereDate('created_at', $date)
                 ->where(function ($query) use ($ids) {
                     foreach ($ids as $id) {
-                        $query->orWhere(fn ($q) => $q->forAssignService($id));
+                        $query->orWhere(fn($q) => $q->forAssignService($id));
                     }
                 })
                 ->exists();
@@ -348,7 +365,7 @@ class SocialMediaReportRequest extends FormRequest
             if ($alreadyReported) {
                 $v->errors()->add(
                     'assign_service_ids',
-                    'A report entry already exists today for one or more selected assign services.'
+                    'A report entry already exists for this date for one or more selected assign services.'
                 );
             }
         });

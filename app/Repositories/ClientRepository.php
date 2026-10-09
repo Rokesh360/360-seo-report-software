@@ -19,6 +19,11 @@ class ClientRepository
         return Client::where('status', true)->orderBy('name')->get(['id', 'name', 'website']);
     }
 
+    public function withSeoReportCounts(): Collection
+    {
+        return Client::withCount('seoReports')->orderBy('name')->get();
+    }
+
     public function find(int $id): Client
     {
         return Client::findOrFail($id);

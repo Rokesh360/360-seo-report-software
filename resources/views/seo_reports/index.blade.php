@@ -22,7 +22,8 @@
                 Create, review, and export client performance reports.
             </p>
         </div>
-
+        
+        @if($selectedClientId)
         <div class="report-heading-actions">
 
             <!-- <a href="{{ route('seo-reports.trash') }}"
@@ -37,6 +38,7 @@
             </a>
 
         </div>
+        @endif
 
     </section>
 
@@ -46,6 +48,14 @@
     </div>
     @endif
 
+    @if($selectedClientId)
+    <div class="report-table-meta">
+        <div>
+            <strong>SEO reports</strong>
+            for {{ $clients->firstWhere('id', $selectedClientId)->name }}
+        </div>
+        <a href="{{ route('seo-reports.index') }}" class="button button-secondary">Back to clients</a>
+    </div>
 
     <section class="panel report-table-panel"
         aria-label="SEO monthly reports">
@@ -161,7 +171,57 @@
 
         </div>
 
+        @if($reports->hasPages())
+        <div class="report-pagination">{{ $reports->links() }}</div>
+        @endif
+
     </section>
+@else
+    <section aria-label="Select a client to view SEO reports">
+
+        <!-- <div class="report-table-meta">
+            <div>
+                <strong>Select a client</strong> to view their SEO reports
+            </div>
+        </div> -->
+
+        <div class="client-card-grid">
+
+            @forelse($clients as $client)
+                <a href="{{ route('seo-reports.index', ['client' => $client->id]) }}"
+                   class="client-card">
+
+                    <div class="client-card__avatar">
+                        {{ strtoupper(substr($client->name, 0, 1)) }}
+                    </div>
+
+                    <div class="client-card__body">
+                        <h3>{{ $client->name }}</h3>
+
+                        <p>
+                            {{ $client->seo_reports_count }}
+                            {{ \Illuminate\Support\Str::plural(
+                                'SEO report',
+                                $client->seo_reports_count
+                            ) }}
+                        </p>
+                    </div>
+
+                    <span class="client-card__arrow" aria-hidden="true">
+                        →
+                    </span>
+
+                </a>
+            @empty
+                <p class="empty-state">
+                    No clients found.
+                    <a href="{{ route('clients.create') }}">Add one</a>.
+                </p>
+            @endforelse
+
+        </div>
+    </section>
+@endif
 
 </div>
 
@@ -201,36 +261,38 @@
 
         });
 
-        $('#seoReportsTable').DataTable({
+        if ($('#seoReportsTable').length) {
+            $('#seoReportsTable').DataTable({
 
-            pageLength: 10,
+                pageLength: 10,
 
-            lengthMenu: [
-                [10, 25, 50, 100, -1],
-                [10, 25, 50, 100, 'All']
-            ],
+                lengthMenu: [
+                    [10, 25, 50, 100, -1],
+                    [10, 25, 50, 100, 'All']
+                ],
 
-            order: [
-                [0, 'asc']
-            ],
+                order: [
+                    [0, 'asc']
+                ],
 
-            columnDefs: [{
-                orderable: false,
-                searchable: false,
-                targets: [0, 5]
-            }],
+                columnDefs: [{
+                    orderable: false,
+                    searchable: false,
+                    targets: [0, 5]
+                }],
 
-            language: {
-                search: '',
-                searchPlaceholder: 'Search reports...',
-                lengthMenu: 'Show _MENU_ reports',
-                info: 'Showing _START_ to _END_ of _TOTAL_ reports',
-                infoEmpty: 'No reports available',
-                zeroRecords: 'No matching reports found',
-                emptyTable: 'No reports available'
-            }
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search reports...',
+                    lengthMenu: 'Show _MENU_ reports',
+                    info: 'Showing _START_ to _END_ of _TOTAL_ reports',
+                    infoEmpty: 'No reports available',
+                    zeroRecords: 'No matching reports found',
+                    emptyTable: 'No reports available'
+                }
 
-        });
+            });
+        }
 
     });
 </script>

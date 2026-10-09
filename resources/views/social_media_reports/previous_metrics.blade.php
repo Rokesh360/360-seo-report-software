@@ -1,7 +1,11 @@
 @include('admin.partials.header', [
-    'pageTitle' => 'Previous Metrics — ' . ($assignService->title ?? 'Service'),
-    'active' => 'social-media-reports',
+'pageTitle' => 'Previous Metrics — ' . ($assignService->title ?? 'Service'),
+'active' => 'social-media-reports',
 ])
+
+@php
+$filled = $rows->filter(fn ($r) => $r['report'])->count();
+@endphp
 
 <div class="dashboard-content report-content">
 
@@ -19,102 +23,87 @@
                 {{ $assignService->from_date?->format('d M Y') }} —
                 {{ $assignService->to_date?->format('d M Y') }}
                 &nbsp;·&nbsp;
-                {{ $reports->count() }} {{ \Illuminate\Support\Str::plural('entry', $reports->count()) }}
+                {{ $filled }} of {{ $rows->count() }} {{ \Illuminate\Support\Str::plural('entry', $rows->count()) }}
             </p>
         </div>
+
+        @if($filled > 0)
+        <a href="{{ route('social-media-reports.service-pdf', $assignService->id) }}"
+            class="button button-primary">Download Overall PDF</a>
+        @endif
     </section>
 
     <section class="metrics-section">
         <div class="metrics-table-wrap">
-            @if($reports->isEmpty())
-                <p class="accordion-empty">No previous reports.</p>
-            @else
-                <table class="metrics-table master-table">
-                    <thead>
-                        <tr>
-                            <th style="width:60px;">S.No</th>
-                            <th style="width:140px;">Entry Date</th>
-                            <th>Type</th>
-                            <th>Platforms</th>
-                            <th class="text-center" style="width:220px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($reports as $index => $report)
-                            @php
-                                // Resolve which report types this report covers
-                                $reportServiceIds = is_array($report->assign_service_ids)
-                                    ? $report->assign_service_ids
-                                    : [];
+            <table class="metrics-table master-table">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">S.No</th>
+                        <th style="width:140px;">Entry Date</th>
+                        <th>Type</th>
+                        <th>Platforms</th>
+                        <th class="text-center" style="width:220px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($rows as $index => $row)
+                    @php
+                    $report = $row['report'];
+                    $typeLabel = '';
 
-                                $reportAssignServices = $reportServiceIds
-                                    ? \App\Models\AssignService::whereIn('id', $reportServiceIds)->get()
-                                    : collect();
+                    if ($report) {
+                    $hasWa = $hasLg = $hasEn = false;
 
-                                $reportTypeMap = [];
-                                foreach ($reportAssignServices as $ra) {
-                                    foreach ($ra->getServices()->pluck('name') as $name) {
-                                        $key = match ($name) {
-                                            'WhatsApp Meta Ads Monthly Report'       => 'whatsapp_meta_ads',
-                                            'Lead Generation Ads Monthly Report'     => 'lead_generation_ads',
-                                            'Social Media Engagement Monthly Report' => 'social_media_engagement',
-                                            default                                   => null,
-                                        };
-                                        if ($key) $reportTypeMap[$key] = true;
-                                    }
-                                }
+                    foreach ($report->assign_services as $ra) {
+                    foreach ($ra->getServices()->pluck('name') as $name) {
+                    if ($name === 'WhatsApp Meta Ads Monthly Report') $hasWa = true;
+                    if ($name === 'Lead Generation Ads Monthly Report') $hasLg = true;
+                    if ($name === 'Social Media Engagement Monthly Report') $hasEn = true;
+                    }
+                    }
 
-                                $hasWa = $reportTypeMap['whatsapp_meta_ads']       ?? false;
-                                $hasLg = $reportTypeMap['lead_generation_ads']     ?? false;
-                                $hasEn = $reportTypeMap['social_media_engagement'] ?? false;
+                    $labels = [];
+                    if ($hasWa) $labels[] = 'WhatsApp Meta Ads';
+                    if ($hasLg) $labels[] = 'Lead Generation Ads';
+                    if ($hasEn) $labels[] = 'Social Media Engagement';
+                    $typeLabel = $labels ? implode(' + ', $labels) : '—';
+                    }
+                    @endphp
 
-                                if (! $hasWa && ! $hasLg && ! $hasEn) {
-                                    $hasWa = $report->total_conversations !== null
-                                          || $report->total_enquiries !== null
-                                          || $report->whatsapp_clicks !== null;
-                                    $hasLg = $report->total_leads !== null
-                                          || $report->form_submissions !== null
-                                          || $report->link_clicks !== null;
-                                    $hasEn = $report->total_engagement !== null
-                                          || $report->reactions !== null
-                                          || $report->comments !== null
-                                          || $report->shares !== null
-                                          || $report->saves !== null
-                                          || $report->profile_visits !== null
-                                          || $report->new_followers !== null;
-                                }
-
-                                $labels = [];
-                                if ($hasWa) $labels[] = 'WhatsApp Meta Ads';
-                                if ($hasLg) $labels[] = 'Lead Generation Ads';
-                                if ($hasEn) $labels[] = 'Social Media Engagement';
-                                $typeLabel = $labels ? implode(' + ', $labels) : '—';
-                            @endphp
-
-                            <tr>
-                                <td>{{ $index + 1 }}</td>
-                                <td>{{ $report->created_at?->format('d M Y') }}</td>
-                                <td>{{ $typeLabel }}</td>
-                                <td>{{ $report->assign_services->pluck('platforms')->filter()->unique()->implode(', ') ?: '—' }}</td>
-                                <td class="metrics-actions text-center">
-                                    <a href="{{ route('social-media-reports.pdf', $report->id) }}"
-                                       class="report-export-link">PDF</a>
-                                    <a href="{{ route('social-media-reports.edit', $report->id) }}"
-                                       class="report-edit-link">Edit</a>
-                                    <form action="{{ route('social-media-reports.destroy', $report->id) }}"
-                                          method="POST"
-                                          class="inline-form"
-                                          onsubmit="return confirm('Move this report to trash?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="report-delete-button">Delete</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @endif
+                    <tr>
+                        <td>{{ $index + 1 }}</td>
+                        <td>{{ $row['date']->format('d M Y') }}</td>
+                        <td>{{ $typeLabel }}</td>
+                        <td>
+                            @if($report)
+                            {{ $report->assign_services->pluck('platforms')->filter()->unique()->implode(', ') ?: '—' }}
+                            @endif
+                        </td>
+                        <td class="metrics-actions text-center">
+                            @if($report)
+                            <a href="{{ route('social-media-reports.edit', $report->id) }}"
+                                class="report-edit-link">Edit</a>
+                            <form action="{{ route('social-media-reports.destroy', $report->id) }}"
+                                method="POST"
+                                class="inline-form"
+                                onsubmit="return confirm('Move this report to trash?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="report-delete-button">Delete</button>
+                            </form>
+                            @else
+                            <a href="{{ route('social-media-reports.create', [
+            'assign_service_id' => $assignService->id,
+            'date'              => $row['date']->format('Y-m-d'),
+       ]) }}"
+                                class="report-edit-link">Edit</a>
+                            <button type="button" class="report-delete-button" style="opacity:.4;" disabled>Delete</button>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </section>
 </div>

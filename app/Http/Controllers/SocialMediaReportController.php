@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\Client;
 use App\Models\SocialMediaReport;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -63,7 +64,22 @@ class SocialMediaReportController extends Controller
     {
         $assignServices = AssignService::where('client_id', $client->id)
             ->latest('from_date')
-            ->get();
+            ->get()
+            ->each(function (AssignService $a) {
+                $from = $a->from_date->copy()->startOfDay();
+                $to   = $a->to_date->copy()->endOfDay();
+
+                // number of table rows = number of dates in the range
+                $a->days_total = (int) $from->diffInDays($to->copy()->startOfDay()) + 1;
+
+                // dates that already have a report (by created_at)
+                $a->days_filled = SocialMediaReport::forAssignService($a->id)
+                    ->whereBetween('created_at', [$from, $to])
+                    ->pluck('created_at')
+                    ->map(fn($d) => $d->toDateString())
+                    ->unique()
+                    ->count();
+            });
 
         return view('social_media_reports.client_services', compact('client', 'assignServices'));
     }
@@ -93,14 +109,27 @@ class SocialMediaReportController extends Controller
     {
         $assignService->load('client');
 
-        $reports = SocialMediaReport::forAssignService($assignService->id)
-            ->whereDate('created_at', '<', Carbon::today())
-            ->orderByDesc('created_at')
-            ->get();
+        $from = $assignService->from_date->copy()->startOfDay();
+        $to   = $assignService->to_date->copy()->startOfDay();
+
+        $byDate = SocialMediaReport::forAssignService($assignService->id)
+            ->whereBetween('created_at', [$from, $to->copy()->endOfDay()])
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy(fn($r) => $r->created_at->toDateString());
+
+        $rows = collect();
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            $rows->push([
+                'date'   => $d->copy(),
+                'report' => $byDate->get($d->toDateString())?->first(),
+                'future' => $d->gt(Carbon::today()),
+            ]);
+        }
 
         return view('social_media_reports.previous_metrics', [
             'assignService' => $assignService,
-            'reports'       => $reports,
+            'rows'          => $rows,
         ]);
     }
 
@@ -149,7 +178,11 @@ class SocialMediaReportController extends Controller
 
     public function store(SocialMediaReportRequest $request)
     {
-        SocialMediaReport::create($request->validated());
+        $report = new SocialMediaReport($request->validated());
+
+        // date comes from ?date=, keep current time for same-day ordering
+        $report->created_at = $request->reportDate()->setTimeFrom(now());
+        $report->save();
 
         return redirect()
             ->route('social-media-reports.index')
@@ -283,5 +316,46 @@ class SocialMediaReportController extends Controller
                 'key_highlights'     => $a->key_highlights,
             ])
             ->values();
+    }
+
+    public function exportServicePdf(AssignService $assignService)
+    {
+        $assignService->load('client');
+
+        $from = $assignService->from_date->copy()->startOfDay();
+        $to   = $assignService->to_date->copy()->endOfDay();
+
+        // Only filled reports inside the assignment's date range
+        $reports = SocialMediaReport::forAssignService($assignService->id)
+            ->whereBetween('created_at', [$from, $to])
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($reports->isEmpty()) {
+            return back()->with('error', 'No filled reports found within this date range.');
+        }
+
+        $assignServices = $this->assignServicesFor($reports);
+
+        $pdf = Pdf::loadView('social_media_reports.pdf.report', [
+            'reports'        => $reports,
+            'single'         => false,
+            'filters'        => [
+                'client_name' => $assignService->client?->name,
+                'from'        => $from->format('d M Y'),
+                'to'          => $to->format('d M Y'),
+            ],
+            'assignServices' => $assignServices,
+            'reportTypes'    => $this->reportTypesFor($reports, $assignServices),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption(['isHtml5ParserEnabled' => true]);
+
+        $name = Str::slug(($assignService->client?->name ?? 'client') . '-' . ($assignService->title ?: 'service'));
+
+        return $pdf->download(
+            $name . '-overall-report-' . $from->format('Ymd') . '-to-' . $to->format('Ymd') . '.pdf'
+        );
     }
 }
