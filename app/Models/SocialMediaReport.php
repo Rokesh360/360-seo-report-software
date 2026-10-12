@@ -37,10 +37,6 @@ class SocialMediaReport extends Model
         'audience_performance',
         'top_posts',
         'content_analysis',
-        'performance_highlights',
-        'key_observations',
-        'monthly_summary',
-        'next_month_plan',
     ];
 
     protected $casts = [
@@ -51,10 +47,6 @@ class SocialMediaReport extends Model
         'audience_performance'   => 'array',
         'top_posts'              => 'array',
         'content_analysis'       => 'array',
-        'performance_highlights' => 'array',
-        'key_observations'       => 'array',
-        'monthly_summary'        => 'array',
-        'next_month_plan'        => 'array',
     ];
 
     public function scopeForAssignService(Builder $query, int $assignServiceId): Builder

@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         User::factory()->create([
-            'name' => 'Admin',
+            'name' => 'SEO Team',
             'email' => 'admin@360degreeinfo.com',
             'password' => '123456789',
         ]);

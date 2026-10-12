@@ -1,6 +1,6 @@
 @include('admin.partials.header', [
     'pageTitle' => $title,
-    'active' => 'social-media-reports',
+    'active' => 'daily-metrics-reports',
     'bodyClass' => 'admin-page report-page',
     'includeBootstrap' => true,
 ])
@@ -66,7 +66,7 @@ $formAction = $action . (request()->filled('date') && ! $report
             <h1>{{ $title }}</h1>
             <p class="page-subtitle">Fill in the fields below and save the report.</p>
         </div>
-        <a href="{{ route('social-media-reports.index') }}" class="button button-secondary">Back to reports</a>
+        <a href="{{ route('daily-metrics-reports.index') }}" class="button button-secondary">Back to reports</a>
     </section>
 
     <form action="{{ $formAction }}" method="POST" enctype="multipart/form-data"
@@ -299,78 +299,10 @@ $formAction = $action . (request()->filled('date') && ! $report
             </div>
         @endif
 
-        {{-- ============ KEY OBSERVATIONS ============ --}}
-        <div class="card mb-3">
-            <div class="card-header">Key Observations</div>
-            <div class="card-body row g-3">
-                @foreach([
-                    'key_observations[creative_attention]'    => ['key_observations.creative_attention',    'Creative attention'],
-                    'key_observations[audience_response]'     => ['key_observations.audience_response',     'Audience response'],
-                    'key_observations[placement_interaction]' => ['key_observations.placement_interaction', 'Placement interaction'],
-                    'performance_highlights[notes]'           => ['performance_highlights.notes',           'Performance Highlights'],
-                ] as $name => [$key, $label])
-                    @php $value = old($key, data_get($report, $key, '')); @endphp
-                    <div class="col-md-6">
-                        <label class="form-label">{{ $label }} <span class="text-danger">*</span></label>
-                        <textarea name="{{ $name }}" rows="2"
-                                  class="form-control {{ $err($key) }}"
-                                  required>{{ $value }}</textarea>
-                        @error($key)<span class="field-error">{{ $message }}</span>@enderror
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- ============ MONTHLY SUMMARY ============ --}}
-        <div class="card mb-3">
-            <div class="card-header">Monthly Summary</div>
-            <div class="card-body row g-3">
-                @foreach([
-                    'monthly_summary[overall]'          => ['monthly_summary.overall',          'Overall'],
-                    'monthly_summary[enquiry]'          => ['monthly_summary.enquiry',          'Enquiry / Lead Gen'],
-                    'monthly_summary[engagement]'       => ['monthly_summary.engagement',       'Audience Engagement'],
-                    'monthly_summary[brand_visibility]' => ['monthly_summary.brand_visibility', 'Brand Visibility'],
-                ] as $name => [$key, $label])
-                    @php $value = old($key, data_get($report, $key, '')); @endphp
-                    <div class="col-md-6">
-                        <label class="form-label">{{ $label }} <span class="text-danger">*</span></label>
-                        <textarea name="{{ $name }}" rows="2"
-                                  class="form-control {{ $err($key) }}"
-                                  required>{{ $value }}</textarea>
-                        @error($key)<span class="field-error">{{ $message }}</span>@enderror
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- ============ NEXT MONTH PLAN ============ --}}
-        <div class="card mb-3">
-            <div class="card-header">Next Month Plan</div>
-            <div class="card-body row g-3">
-                @foreach([
-                    'next_month_plan[test_creatives]'     => ['next_month_plan.test_creatives',     'Test New Creatives'],
-                    'next_month_plan[audience_targeting]' => ['next_month_plan.audience_targeting', 'Improve Audience Targeting'],
-                    'next_month_plan[retargeting]'        => ['next_month_plan.retargeting',        'Retarget Interested Users'],
-                    'next_month_plan[messaging]'          => ['next_month_plan.messaging',          'Test Different Messaging'],
-                    'next_month_plan[high_performers]'    => ['next_month_plan.high_performers',    'Focus on High-Performers'],
-                    'next_month_plan[quality_leads]'      => ['next_month_plan.quality_leads',      'Increase Quality Leads'],
-                ] as $name => [$key, $label])
-                    @php $value = old($key, data_get($report, $key, '')); @endphp
-                    <div class="col-md-6">
-                        <label class="form-label">{{ $label }} <span class="text-danger">*</span></label>
-                        <textarea name="{{ $name }}" rows="2"
-                                  class="form-control {{ $err($key) }}"
-                                  required>{{ $value }}</textarea>
-                        @error($key)<span class="field-error">{{ $message }}</span>@enderror
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         {{-- ========== Actions ========== --}}
         <div class="report-form-actions">
             <button type="submit" class="button button-primary">Save report</button>
-            <a href="{{ route('social-media-reports.index') }}" class="button button-secondary">Cancel</a>
+            <a href="{{ route('daily-metrics-reports.index') }}" class="button button-secondary">Cancel</a>
         </div>
     </form>
 </div>

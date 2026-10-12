@@ -75,7 +75,7 @@ class DashboardController extends Controller
             'start'        => $start,
             'end'          => $end,
             'periodLabel'  => $month->format('F Y'),
-            'greeting'     => now()->hour < 12 ? 'Good morning' : (now()->hour < 17 ? 'Good afternoon' : 'Good evening'),
+            'greeting'     => now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening'),
             'cards'        => $cards,
             'chart'        => $chart,
             'donut'        => $donut,

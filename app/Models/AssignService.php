@@ -29,12 +29,20 @@ class AssignService extends Model
         'target_audience',
         'campaign_focus',
         'key_highlights',
+        'key_observations',
+        'performance_highlights',
+        'monthly_summary',
+        'next_month_plan',
     ];
 
     protected $casts = [
         'from_date'  => 'date',
         'to_date'    => 'date',
         'service_id' => 'array',
+        'key_observations' => 'array',
+        'performance_highlights' => 'array',
+        'monthly_summary' => 'array',
+        'next_month_plan' => 'array',
     ];
 
     public function client(): BelongsTo

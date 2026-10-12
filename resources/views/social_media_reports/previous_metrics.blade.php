@@ -1,10 +1,13 @@
 @include('admin.partials.header', [
-'pageTitle' => 'Previous Metrics — ' . ($assignService->title ?? 'Service'),
-'active' => 'social-media-reports',
+    'pageTitle' => 'Previous Metrics — ' . ($assignService->title ?? 'Service'),
+    'active' => 'daily-metrics-reports',
+    'bodyClass' => 'admin-page report-page',
+    'includeDataTables' => true,
+    'viteAssets' => ['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'],
 ])
 
 @php
-$filled = $rows->filter(fn ($r) => $r['report'])->count();
+    $filled = $rows->filter(fn ($r) => $r['report'])->count();
 @endphp
 
 <div class="dashboard-content report-content">
@@ -12,7 +15,7 @@ $filled = $rows->filter(fn ($r) => $r['report'])->count();
     <section class="page-heading report-page-heading">
         <div>
             <div class="eyebrow">
-                <a href="{{ route('social-media-reports.client-services', $assignService->client_id) }}">
+                <a href="{{ route('daily-metrics-reports.client-services', $assignService->client_id) }}">
                     ← {{ $assignService->title ?? $assignService->service_names ?? 'Service #' . $assignService->id }}
                 </a>
             </div>
@@ -28,84 +31,187 @@ $filled = $rows->filter(fn ($r) => $r['report'])->count();
         </div>
 
         @if($filled > 0)
-        <a href="{{ route('social-media-reports.service-pdf', $assignService->id) }}"
-            class="button button-primary">Download Overall PDF</a>
+            <a href="{{ route('daily-metrics-reports.service-pdf', $assignService->id) }}"
+               class="button button-primary">Download Overall PDF</a>
         @endif
     </section>
 
-    <section class="metrics-section">
-        <div class="metrics-table-wrap">
-            <table class="metrics-table master-table">
+    <section class="metrics-section panel report-table-panel">
+        <div class="report-table-meta">
+            <div>
+                <strong>{{ $rows->count() }}</strong>
+                {{ \Illuminate\Support\Str::plural('entry', $rows->count()) }}
+            </div>
+            <span>Previous metrics for this service</span>
+        </div>
+
+        <div class="report-table-scroll">
+            <table id="previousMetricsTable" class="metrics-table master-table report-table display dataTable">
                 <thead>
                     <tr>
                         <th style="width:60px;">S.No</th>
                         <th style="width:140px;">Entry Date</th>
                         <th>Type</th>
                         <th>Platforms</th>
-                        <th class="text-center" style="width:220px; text-align: center;">Actions</th>
+                        <th class="report-actions-heading" style="width:220px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($rows as $index => $row)
-                    @php
-                    $report = $row['report'];
-                    $typeLabel = '';
+                        @php
+                            $report = $row['report'];
+                            $typeLabel = '';
 
-                    if ($report) {
-                    $hasWa = $hasLg = $hasEn = false;
+                            if ($report) {
+                                $hasWa = $hasLg = $hasEn = false;
 
-                    foreach ($report->assign_services as $ra) {
-                    foreach ($ra->getServices()->pluck('name') as $name) {
-                    if ($name === 'WhatsApp Meta Ads Monthly Report') $hasWa = true;
-                    if ($name === 'Lead Generation Ads Monthly Report') $hasLg = true;
-                    if ($name === 'Social Media Engagement Monthly Report') $hasEn = true;
-                    }
-                    }
+                                foreach ($report->assign_services as $ra) {
+                                    foreach ($ra->getServices()->pluck('name') as $name) {
+                                        if ($name === 'WhatsApp Meta Ads Monthly Report') $hasWa = true;
+                                        if ($name === 'Lead Generation Ads Monthly Report') $hasLg = true;
+                                        if ($name === 'Social Media Engagement Monthly Report') $hasEn = true;
+                                    }
+                                }
 
-                    $labels = [];
-                    if ($hasWa) $labels[] = 'WhatsApp Meta Ads';
-                    if ($hasLg) $labels[] = 'Lead Generation Ads';
-                    if ($hasEn) $labels[] = 'Social Media Engagement';
-                    $typeLabel = $labels ? implode(' + ', $labels) : '—';
-                    }
-                    @endphp
+                                $labels = [];
+                                if ($hasWa) $labels[] = 'WhatsApp Meta Ads';
+                                if ($hasLg) $labels[] = 'Lead Generation Ads';
+                                if ($hasEn) $labels[] = 'Social Media Engagement';
+                                $typeLabel = $labels ? implode(' + ', $labels) : '—';
+                            }
+                        @endphp
 
-                    <tr>
-                        <td>{{ $index + 1 }}</td>
-                        <td>{{ $row['date']->format('d M Y') }}</td>
-                        <td>{{ $typeLabel }}</td>
-                        <td>
-                            @if($report)
-                            {{ $report->assign_services->pluck('platforms')->filter()->unique()->implode(', ') ?: '—' }}
-                            @endif
-                        </td>
-                        <td class="metrics-actions text-center">
-                            @if($report)
-                            <a href="{{ route('social-media-reports.edit', $report->id) }}"
-                                class="report-edit-link">Edit</a>
-                            <form action="{{ route('social-media-reports.destroy', $report->id) }}"
-                                method="POST"
-                                class="inline-form"
-                                onsubmit="return confirm('Move this report to trash?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="report-delete-button">Delete</button>
-                            </form>
-                            @else
-                            <a href="{{ route('social-media-reports.create', [
-            'assign_service_id' => $assignService->id,
-            'date'              => $row['date']->format('Y-m-d'),
-       ]) }}"
-                                class="report-edit-link">Edit</a>
-                            <button type="button" class="report-delete-button" style="opacity:.4;" disabled>Delete</button>
-                            @endif
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $row['date']->format('d M Y') }}</td>
+                            <td>{{ $typeLabel }}</td>
+                            <td>
+                                @if($report)
+                                    {{ $report->assign_services->pluck('platforms')->filter()->unique()->implode(', ') ?: '—' }}
+                                @endif
+                            </td>
+                            <td class="metrics-actions report-actions-cell" style="text-align: center;">
+                                <div class="report-row-actions">
+                                    @if($report)
+                                        {{-- Row has a report → Edit + Delete --}}
+                                        <a href="{{ route('daily-metrics-reports.edit', $report->id) }}"
+                                           class="report-edit-link">Edit</a>
+
+                                        <form action="{{ route('daily-metrics-reports.destroy', $report->id) }}"
+                                              method="POST"
+                                              class="report-delete-form js-delete-form"
+                                              data-report-id="{{ $report->id }}"
+                                              data-report-date="{{ $row['date']->format('d M Y') }}"
+                                              data-client-name="{{ $assignService->client->name }}"
+                                              data-service-title="{{ $assignService->title ?? $assignService->service_names ?? 'Service #' . $assignService->id }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                    class="report-delete-button"
+                                                    aria-label="Delete report"
+                                                    title="Delete report">
+                                                <svg viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path d="M4 6h12M8 6V4h4v2m3 0-.7 10H5.7L5 6m3 3v4m4-4v4" />
+                                                </svg>
+                                            </button>
+                                        </form>
+                                    @else
+                                        {{-- Row has no report → Add --}}
+                                        <a href="{{ route('daily-metrics-reports.create', [
+                                                'assign_service_id' => $assignService->id,
+                                                'date'              => $row['date']->format('Y-m-d'),
+                                            ]) }}"
+                                           class="btn-add-today"
+                                           title="No entry for {{ $row['date']->format('d M Y') }} — add one">
+                                            <span aria-hidden="true">+</span> Add
+                                        </a>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+
+        {{-- Laravel pagination block REMOVED — DataTables handles paging --}}
     </section>
 </div>
 
 @include('admin.partials.footer')
+
+{{-- ============================================================ --}}
+{{-- jQuery + DataTables + SweetAlert2                            --}}
+{{-- ============================================================ --}}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/2.3.4/js/dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    (function () {
+
+        // ---------- DataTable initialization ----------
+        $(document).ready(function () {
+            $('#previousMetricsTable').DataTable({
+                pageLength: 10,
+                lengthMenu: [
+                    [10, 25, 50, 100, -1],
+                    [10, 25, 50, 100, 'All']
+                ],
+                order: [[0, 'asc']],
+                columnDefs: [
+                    {
+                        orderable: false,
+                        searchable: false,
+                        targets: [0, 4] // S.No + Actions column
+                    }
+                ],
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search entries...',
+                    lengthMenu: 'Show _MENU_ entries',
+                    info: 'Showing _START_ to _END_ of _TOTAL_ entries',
+                    infoEmpty: 'No entries available',
+                    zeroRecords: 'No matching entries found',
+                    emptyTable: 'No previous metrics recorded for this service'
+                }
+            });
+        });
+
+        // ---------- SweetAlert delete confirmation (event-delegated so it
+        //            survives DataTable re-renders) ----------
+        document.addEventListener('submit', function (e) {
+            const form = e.target.closest('.js-delete-form');
+            if (!form) return;
+
+            e.preventDefault();
+
+            const clientName   = form.dataset.clientName   || 'this client';
+            const serviceTitle = form.dataset.serviceTitle || 'this service';
+            const reportDate   = form.dataset.reportDate   || 'today';
+
+            Swal.fire({
+                title: 'Move this report to trash?',
+                html: `
+                    You are about to delete the report for
+                    <strong>${serviceTitle}</strong>
+                    of <strong>${clientName}</strong>
+                    (entry date: <strong>${reportDate}</strong>).
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                focusCancel: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+
+    })();
+</script>

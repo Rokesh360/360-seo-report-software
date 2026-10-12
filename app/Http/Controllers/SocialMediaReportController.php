@@ -185,38 +185,38 @@ class SocialMediaReportController extends Controller
         $report->save();
 
         return redirect()
-            ->route('social-media-reports.index')
+            ->route('daily-metrics-reports.index')
             ->with('success', 'Report created successfully.');
     }
 
     /* ============================================================
      |  edit / update / destroy
      ============================================================ */
-    public function edit(SocialMediaReport $socialMediaReport)
+    public function edit(SocialMediaReport $dailyMetricsReport)
     {
         $assignServices = AssignService::orderBy('id')->get();
 
         return view('social_media_reports.edit', [
-            'report'         => $socialMediaReport,
+            'report'         => $dailyMetricsReport,
             'assignServices' => $assignServices,
         ]);
     }
 
-    public function update(SocialMediaReportRequest $request, SocialMediaReport $socialMediaReport)
+    public function update(SocialMediaReportRequest $request, SocialMediaReport $dailyMetricsReport)
     {
-        $socialMediaReport->update($request->validated());
+        $dailyMetricsReport->update($request->validated());
 
         return redirect()
-            ->route('social-media-reports.index')
+            ->route('daily-metrics-reports.index')
             ->with('success', 'Report updated successfully.');
     }
 
-    public function destroy(SocialMediaReport $socialMediaReport)
+    public function destroy(SocialMediaReport $dailyMetricsReport)
     {
-        $socialMediaReport->delete();
+        $dailyMetricsReport->delete();
 
         return redirect()
-            ->route('social-media-reports.index')
+            ->route('daily-metrics-reports.index')
             ->with('success', 'Report moved to trash.');
     }
 
@@ -268,7 +268,7 @@ class SocialMediaReportController extends Controller
             ->setPaper('a4', 'portrait')
             ->setOption(['isHtml5ParserEnabled' => true]);
 
-        return $pdf->download('social-media-reports-all-' . now()->format('Ymd-His') . '.pdf');
+        return $pdf->download('daily-metrics-reports-all-' . now()->format('Ymd-His') . '.pdf');
     }
 
     /**

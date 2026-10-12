@@ -37,21 +37,38 @@ class AssignServiceController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View|RedirectResponse
     {
+        $clientId = $request->integer('client') ?: null;
+
+        if (! $clientId || ! Client::whereKey($clientId)->exists()) {
+            return redirect()
+                ->route('assign-services.index')
+                ->with('error', 'Please select a client first.');
+        }
+
+        $client = Client::findOrFail($clientId);
+
         return view('assign-services.create', [
-            'clients'  => Client::orderBy('name')->get(),
-            'services' => Service::orderBy('name')->get(),
-            'active'   => 'assign-services',
+            'client'           => $client,
+            'services'         => Service::orderBy('name')->get(),
+            'active'           => 'assign-services',
+            'selectedClientId' => $clientId,
         ]);
     }
 
     public function store(AssignServiceRequest $request): RedirectResponse
     {
-        $this->repository->create($request->validated());
+        $data = $request->validated();
+
+        // Force the client from the query string / request — never trust the form
+        $data['client_id'] = $request->integer('client')
+            ?: $request->integer('client_id');
+
+        $this->repository->create($data);
 
         return redirect()
-            ->route('assign-services.index')
+            ->route('assign-services.index', ['client' => $data['client_id']])
             ->with('success', 'Service assigned to client successfully.');
     }
 
@@ -65,11 +82,14 @@ class AssignServiceController extends Controller
 
     public function edit(int $id): View
     {
+        $assignService = $this->repository->find($id);
+
         return view('assign-services.edit', [
-            'assignService' => $this->repository->find($id),
-            'clients'       => Client::orderBy('name')->get(),
-            'services'      => Service::orderBy('name')->get(),
-            'active'        => 'assign-services',
+            'assignService'    => $assignService,
+            'client'           => $assignService->client,
+            'services'         => Service::orderBy('name')->get(),
+            'active'           => 'assign-services',
+            'selectedClientId' => $assignService->client_id,
         ]);
     }
 

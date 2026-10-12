@@ -19,13 +19,11 @@
                 Assign services to clients with a validity period.
             </p>
         </div>
-
+        @if($selectedClientId)
         <div class="report-heading-actions">
-            <a href="{{ route('assign-services.create') }}" class="button button-primary">
-                <span aria-hidden="true">+</span>
-                Assign service
-            </a>
+            <a href="{{ route('assign-services.index') }}" class="button button-secondary">Back to clients</a>
         </div>
+        @endif
     </section>
 
     @if(session('success'))
@@ -37,10 +35,14 @@
     @if($selectedClientId)
     <div class="report-table-meta">
         <div>
-            <strong>Assigned services</strong>
-            for {{ $clients->firstWhere('id', $selectedClientId)->name }}
+            <!-- <strong>Assigned services</strong>
+            for {{ $clients->firstWhere('id', $selectedClientId)->name }} -->
         </div>
-        <a href="{{ route('assign-services.index') }}" class="button button-secondary">Back to clients</a>
+        <a href="{{ route('assign-services.create', ['client' => $selectedClientId]) }}"
+            class="button button-primary">
+            <span aria-hidden="true">+</span>
+            New assign service
+        </a>
     </div>
 
     <section class="panel report-table-panel" aria-label="Assigned services">
@@ -49,7 +51,7 @@
                 <strong>{{ $assignServices->total() }}</strong>
                 {{ \Illuminate\Support\Str::plural('assignment', $assignServices->total()) }}
             </div>
-            <span>Newest assignments first</span>
+            <span>Newest assign services first</span>
         </div>
 
         <div class="report-table-scroll">
@@ -144,7 +146,7 @@
         </div> -->
 
         <div class="client-card-grid">
-            @forelse($clients as $client)
+            @forelse($clients->where('status', true) as $client)
             <a href="{{ route('assign-services.index', ['client' => $client->id]) }}"
                 class="client-card">
                 <div class="client-card__avatar">
@@ -153,13 +155,13 @@
                 <div class="client-card__body">
                     <h3>{{ $client->name }}</h3>
                     <p>{{ $client->assign_services_count }}
-                        {{ \Illuminate\Support\Str::plural('assignment', $client->assign_services_count) }}
+                        {{ \Illuminate\Support\Str::plural('assign service', $client->assign_services_count) }}
                     </p>
                 </div>
                 <span class="client-card__arrow" aria-hidden="true">→</span>
             </a>
             @empty
-            <p class="empty-state">No clients found. <a href="{{ route('clients.create') }}">Add one</a>.</p>
+            <p class="empty-state">No active clients found. <a href="{{ route('clients.create') }}">Add one</a>.</p>
             @endforelse
         </div>
     </section>
@@ -200,28 +202,28 @@
 
         if ($('#assignServicesTable').length) {
             $('#assignServicesTable').DataTable({
-            pageLength: 10,
-            lengthMenu: [
-                [10, 25, 50, 100, -1],
-                [10, 25, 50, 100, 'All']
-            ],
-            order: [
-                [0, 'asc']
-            ],
-            columnDefs: [{
-                orderable: false,
-                searchable: false,
-                targets: [0, 6]
-            }],
-            language: {
-                search: '',
-                searchPlaceholder: 'Search assignments...',
-                lengthMenu: 'Show _MENU_ assignments',
-                info: 'Showing _START_ to _END_ of _TOTAL_ assignments',
-                infoEmpty: 'No assignments available',
-                zeroRecords: 'No matching assignments found',
-                emptyTable: 'No assignments available'
-            }
+                pageLength: 10,
+                lengthMenu: [
+                    [10, 25, 50, 100, -1],
+                    [10, 25, 50, 100, 'All']
+                ],
+                order: [
+                    [0, 'asc']
+                ],
+                columnDefs: [{
+                    orderable: false,
+                    searchable: false,
+                    targets: [0, 6]
+                }],
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search assign services...',
+                    lengthMenu: 'Show _MENU_ assign services',
+                    info: 'Showing _START_ to _END_ of _TOTAL_ assign services',
+                    infoEmpty: 'No assign services available',
+                    zeroRecords: 'No matching assign services found',
+                    emptyTable: 'No assign services available'
+                }
             });
         }
     });

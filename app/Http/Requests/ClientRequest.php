@@ -17,10 +17,35 @@ class ClientRequest extends FormRequest
         return [
             'name'    => ['required', 'string', 'max:255',
                           Rule::unique('clients', 'name')->ignore($this->route('client'))],
-            'website' => 'required|string|max:255',
-            'email'   => 'nullable|email|max:255',
-            'phone'   => 'nullable|string|max:30',
-            'status'  => 'required|boolean',
+            'website' => ['required', 'string', 'max:255'],
+            'email'   => ['required', 'email', 'max:255'],
+            'phone'   => ['required', 'string', 'max:30'],
+            'status'  => ['required', 'boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required'    => 'Please enter the client name.',
+            'name.unique'      => 'A client with this name already exists.',
+            'website.required' => 'Please enter the client website.',
+            'website.max'      => 'Website must not exceed 255 characters.',
+            'email.email'      => 'Please enter a valid email address.',
+            'phone.max'        => 'Phone must not exceed 30 characters.',
+            'status.required'  => 'Please choose a status.',
+            'status.boolean'   => 'Status must be Active or Inactive.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'name'    => 'client name',
+            'website' => 'website',
+            'email'   => 'email',
+            'phone'   => 'phone',
+            'status'  => 'status',
         ];
     }
 }

@@ -1081,8 +1081,8 @@ input {
 .health-score {
     position: relative;
     display: grid;
-    width: 122px;
-    height: 122px;
+    width: -webkit-fill-available;
+    height: 150px;
     place-items: center;
     margin: 10px auto 7px;
 }
@@ -3136,4 +3136,12 @@ select[multiple].form-select option:checked {
     .admin-page .subtable {
         font-size: 13px;
     }
+}
+
+.required-star {
+    color: #d33;         
+    font-weight: 600;
+    margin-left: 2px;
+    font-size: 0.95em;
+    line-height: 1;
 }

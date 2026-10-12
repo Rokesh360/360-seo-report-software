@@ -22,7 +22,7 @@
                 Create, review, and export client performance reports.
             </p>
         </div>
-        
+
         @if($selectedClientId)
         <div class="report-heading-actions">
 
@@ -31,11 +31,7 @@
                             View trash
                         </a> -->
 
-            <a href="{{ route('seo-reports.create') }}"
-                class="button button-primary">
-                <span aria-hidden="true">+</span>
-                New report
-            </a>
+            <a href="{{ route('seo-reports.index') }}" class="button button-secondary">Back to clients</a>
 
         </div>
         @endif
@@ -51,10 +47,14 @@
     @if($selectedClientId)
     <div class="report-table-meta">
         <div>
-            <strong>SEO reports</strong>
-            for {{ $clients->firstWhere('id', $selectedClientId)->name }}
+            <!-- <strong>SEO reports</strong>
+            for {{ $clients->firstWhere('id', $selectedClientId)->name }} -->
         </div>
-        <a href="{{ route('seo-reports.index') }}" class="button button-secondary">Back to clients</a>
+        <a href="{{ route('seo-reports.create', ['client' => $selectedClientId]) }}"
+            class="button button-primary">
+            <span aria-hidden="true">+</span>
+            New report
+        </a>
     </div>
 
     <section class="panel report-table-panel"
@@ -176,7 +176,7 @@
         @endif
 
     </section>
-@else
+    @else
     <section aria-label="Select a client to view SEO reports">
 
         <!-- <div class="report-table-meta">
@@ -187,41 +187,41 @@
 
         <div class="client-card-grid">
 
-            @forelse($clients as $client)
-                <a href="{{ route('seo-reports.index', ['client' => $client->id]) }}"
-                   class="client-card">
+            @forelse($clients->where('status', true) as $client)
+            <a href="{{ route('seo-reports.index', ['client' => $client->id]) }}"
+                class="client-card">
 
-                    <div class="client-card__avatar">
-                        {{ strtoupper(substr($client->name, 0, 1)) }}
-                    </div>
+                <div class="client-card__avatar">
+                    {{ strtoupper(substr($client->name, 0, 1)) }}
+                </div>
 
-                    <div class="client-card__body">
-                        <h3>{{ $client->name }}</h3>
+                <div class="client-card__body">
+                    <h3>{{ $client->name }}</h3>
 
-                        <p>
-                            {{ $client->seo_reports_count }}
-                            {{ \Illuminate\Support\Str::plural(
-                                'SEO report',
-                                $client->seo_reports_count
-                            ) }}
-                        </p>
-                    </div>
+                    <p>
+                        {{ $client->seo_reports_count }}
+                        {{ \Illuminate\Support\Str::plural(
+                        'SEO report',
+                        $client->seo_reports_count
+                    ) }}
+                    </p>
+                </div>
 
-                    <span class="client-card__arrow" aria-hidden="true">
-                        →
-                    </span>
+                <span class="client-card__arrow" aria-hidden="true">
+                    →
+                </span>
 
-                </a>
+            </a>
             @empty
-                <p class="empty-state">
-                    No clients found.
-                    <a href="{{ route('clients.create') }}">Add one</a>.
-                </p>
+            <p class="empty-state">
+                No active clients found.
+                <a href="{{ route('clients.create') }}">Add one</a>.
+            </p>
             @endforelse
 
         </div>
     </section>
-@endif
+    @endif
 
 </div>
 

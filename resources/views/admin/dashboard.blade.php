@@ -21,7 +21,8 @@
                 <span class="status-dot status-dot-dark"></span> MONTHLY REPORT
                 <span class="heading-date">{{ strtoupper($start->format('d M')) }} — {{ strtoupper($end->format('d M Y')) }}</span>
             </div>
-            <h1>{{ $greeting }}, {{ explode(' ', auth()->user()->name)[0] }}.</h1>
+            <!-- <h1>{{ $greeting }}, {{ auth()->user()->name }}.</h1> -->
+             <h1>{{ $greeting }}, {{ trim(\Illuminate\Support\Str::after(auth()->user()->name, ' ')) ?: auth()->user()->name }}.</h1>
             <p class="page-subtitle">Here’s how your campaigns performed this month.</p>
         </div>
 
@@ -132,7 +133,7 @@
                             @endforeach
                         </g>
                     </svg>
-                    <div class="health-score-label"><strong>{{ $donut['totalLabel'] }}</strong><span>interactions</span></div>
+                    <div class="health-score-label"><strong>{{ $donut['totalLabel'] }}</strong><span>Interactions</span></div>
                 </div>
                 <div class="health-list">
                     @foreach($donut['slices'] as $s)

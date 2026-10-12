@@ -268,10 +268,6 @@
 
         $creative = $report->creative_performance  ?? [];
         $audience = $report->audience_performance ?? [];
-        $obs      = $report->key_observations     ?? [];
-        $highlight= $report->performance_highlights ?? [];
-        $summary  = $report->monthly_summary      ?? [];
-        $plan     = $report->next_month_plan      ?? [];
         $campaignRows = $report->campaign_results ?? [];
         $topPosts     = $report->top_posts        ?? [];
         $content      = $report->content_analysis ?? [];
@@ -373,9 +369,15 @@
         </div>
 
         @foreach($reportAssignServices as $assignService)
+            @php
+                $obs = $assignService->key_observations ?? [];
+                $highlight = $assignService->performance_highlights ?? [];
+                $summary = $assignService->monthly_summary ?? [];
+                $plan = $assignService->next_month_plan ?? [];
+            @endphp
             <div class="section">
                 <h2 class="section-title">
-                    Assignment Details — {{ $assignService->title ?: 'Service #' . $assignService->id }}
+                    Assign Service Details — {{ $assignService->title ?: 'Service #' . $assignService->id }}
                 </h2>
                 <table class="meta-grid">
                     <tr>
@@ -396,6 +398,58 @@
                 @endif
                 @if($assignService->key_highlights)
                     <div class="text-block"><span class="tb-label">Key Highlights</span><span class="tb-value">{{ $assignService->key_highlights }}</span></div>
+                @endif
+
+                @if(!empty(array_filter($obs)) || !empty(array_filter($highlight)))
+                    <h3 class="section-title">Key Observations</h3>
+                    <table class="meta-grid">
+                        @if(!empty($obs['creative_attention']))
+                            <tr><td class="label">Creative Attention</td><td colspan="3">{{ $obs['creative_attention'] }}</td></tr>
+                        @endif
+                        @if(!empty($obs['audience_response']))
+                            <tr><td class="label">Audience Response</td><td colspan="3">{{ $obs['audience_response'] }}</td></tr>
+                        @endif
+                        @if(!empty($obs['placement_interaction']))
+                            <tr><td class="label">Placement Interaction</td><td colspan="3">{{ $obs['placement_interaction'] }}</td></tr>
+                        @endif
+                        @if(!empty($highlight['notes']))
+                            <tr><td class="label">Performance Highlights</td><td colspan="3">{{ $highlight['notes'] }}</td></tr>
+                        @endif
+                    </table>
+                @endif
+
+                @if(!empty(array_filter($summary)))
+                    <h3 class="section-title">Monthly Summary</h3>
+                    <table class="meta-grid">
+                        @foreach([
+                            'overall' => 'Overall Performance',
+                            'enquiry' => 'Enquiry / Lead Generation',
+                            'engagement' => 'Audience Engagement',
+                            'brand_visibility' => 'Brand Visibility',
+                        ] as $key => $label)
+                            @if(!empty($summary[$key]))
+                                <tr><td class="label">{{ $label }}</td><td colspan="3">{{ $summary[$key] }}</td></tr>
+                            @endif
+                        @endforeach
+                    </table>
+                @endif
+
+                @if(!empty(array_filter($plan)))
+                    <h3 class="section-title">Next Month Plan</h3>
+                    <table class="meta-grid">
+                        @foreach([
+                            'test_creatives' => 'Test New Creatives',
+                            'audience_targeting' => 'Improve Audience Targeting',
+                            'retargeting' => 'Retarget Interested Users',
+                            'messaging' => 'Test Different Messaging',
+                            'high_performers' => 'Focus on High-Performing Audiences',
+                            'quality_leads' => 'Increase Quality Leads / Enquiries',
+                        ] as $key => $label)
+                            @if(!empty($plan[$key]))
+                                <tr><td class="label">{{ $label }}</td><td colspan="3">{{ $plan[$key] }}</td></tr>
+                            @endif
+                        @endforeach
+                    </table>
                 @endif
             </div>
         @endforeach
@@ -610,53 +664,6 @@
                 @if(!empty($audience['placement']))  <tr><td class="label">Placement</td><td colspan="3">{{ $audience['placement'] }}</td></tr>   @endif
             </table>
             @endif
-        </div>
-        @endif
-
-        {{-- ---------- Key Observations ---------- --}}
-        @if(!empty(array_filter($obs)) || !empty(array_filter($highlight)))
-        <div class="section">
-            <h2 class="section-title">Key Observations</h2>
-            <table class="meta-grid">
-                @if(!empty($obs['creative_attention']))      <tr><td class="label">Creative Attention</td><td colspan="3">{{ $obs['creative_attention'] }}</td></tr>       @endif
-                @if(!empty($obs['audience_response']))       <tr><td class="label">Audience Response</td><td colspan="3">{{ $obs['audience_response'] }}</td></tr>        @endif
-                @if(!empty($obs['placement_interaction']))   <tr><td class="label">Placement Interaction</td><td colspan="3">{{ $obs['placement_interaction'] }}</td></tr>@endif
-                @if(!empty($highlight['notes']))             <tr><td class="label">Performance Highlights</td><td colspan="3">{{ $highlight['notes'] }}</td></tr>        @endif
-            </table>
-        </div>
-        @endif
-
-        {{-- ---------- Monthly Summary ---------- --}}
-        @if(!empty(array_filter($summary)))
-        <div class="section">
-            <h2 class="section-title">Monthly Summary</h2>
-            <table class="meta-grid">
-                @if(!empty($summary['overall']))           <tr><td class="label">Overall Performance</td><td colspan="3">{{ $summary['overall'] }}</td></tr>          @endif
-                @if(!empty($summary['enquiry']))           <tr><td class="label">Enquiry / Lead Generation</td><td colspan="3">{{ $summary['enquiry'] }}</td></tr>    @endif
-                @if(!empty($summary['engagement']))        <tr><td class="label">Audience Engagement</td><td colspan="3">{{ $summary['engagement'] }}</td></tr>      @endif
-                @if(!empty($summary['brand_visibility']))  <tr><td class="label">Brand Visibility</td><td colspan="3">{{ $summary['brand_visibility'] }}</td></tr>  @endif
-            </table>
-        </div>
-        @endif
-
-        {{-- ---------- Next Month Plan ---------- --}}
-        @if(!empty(array_filter($plan)))
-        <div class="section">
-            <h2 class="section-title">Next Month Plan</h2>
-            <table class="meta-grid">
-                @foreach([
-                    'test_creatives'     => 'Test New Creatives',
-                    'audience_targeting' => 'Improve Audience Targeting',
-                    'retargeting'        => 'Retarget Interested Users',
-                    'messaging'          => 'Test Different Messaging',
-                    'high_performers'    => 'Focus on High-Performing Audiences',
-                    'quality_leads'      => 'Increase Quality Leads / Enquiries',
-                ] as $key => $label)
-                    @if(!empty($plan[$key]))
-                        <tr><td class="label">{{ $label }}</td><td colspan="3">{{ $plan[$key] }}</td></tr>
-                    @endif
-                @endforeach
-            </table>
         </div>
         @endif
 

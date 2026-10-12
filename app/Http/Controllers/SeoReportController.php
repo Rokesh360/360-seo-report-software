@@ -3,18 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SeoReportRequest;
+use App\Models\Client;
 use App\Repositories\ClientRepository;
 use App\Repositories\SeoReportRepository;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class SeoReportController extends Controller
 {
     public function __construct(
         private SeoReportRepository $reports,
         private ClientRepository $clients
-    ) {
-    }
+    ) {}
 
     // Table listing
     public function index(Request $request)
@@ -38,35 +40,69 @@ class SeoReportController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request): View|RedirectResponse
     {
+        $clientId = $request->integer('client') ?: null;
+
+        if (! $clientId || ! Client::whereKey($clientId)->exists()) {
+            return redirect()
+                ->route('seo-reports.index')
+                ->with('error', 'Please select a client first.');
+        }
+
+        $client = Client::findOrFail($clientId);
+
         return view('seo_reports.create', [
-            'clients' => $this->clients->activeList(),   // client dropdown
+            'client'           => $client,
+            'selectedClientId' => $clientId,
+            'active'           => 'reports',
         ]);
     }
 
     // Save form + multiple rows + image uploads
-    public function store(SeoReportRequest $request)
+    public function store(SeoReportRequest $request): RedirectResponse
     {
-        $this->reports->create($request->validated());
+        $data = $request->validated();
 
-        return redirect()->route('seo-reports.index')
+        // Client comes from the route query string — never trust a hidden field blindly
+        $data['client_id'] = $request->integer('client')
+            ?: $request->integer('client_id');
+
+        // Website mirrors the client's website (read-only in the form)
+        $data['website'] = Client::whereKey($data['client_id'])->value('website') ?? '';
+
+        $this->reports->create($data);
+
+        return redirect()
+            ->route('seo-reports.index', ['client' => $data['client_id']])
             ->with('success', 'SEO report saved successfully.');
     }
 
-    public function edit(int $id)
+    public function edit(int $id): View
     {
+        $report = $this->reports->find($id);
+
         return view('seo_reports.edit', [
-            'report'  => $this->reports->find($id),
-            'clients' => $this->clients->activeList(),   // client dropdown
+            'report'           => $report,
+            'client'           => $report->client,
+            'selectedClientId' => $report->client_id,
+            'active'           => 'reports',
         ]);
     }
 
-    public function update(SeoReportRequest $request, int $id)
+    public function update(SeoReportRequest $request, int $id): RedirectResponse
     {
-        $this->reports->update($id, $request->validated());
+        $data = $request->validated();
 
-        return redirect()->route('seo-reports.index')
+        // Force client_id from the existing record (edit form never changes client)
+        $report = $this->reports->find($id);
+        $data['client_id'] = $report->client_id;
+        $data['website']   = $report->client->website ?? '';
+
+        $this->reports->update($id, $data);
+
+        return redirect()
+            ->route('seo-reports.index', ['client' => $report->client_id])
             ->with('success', 'SEO report updated successfully.');
     }
 

@@ -1,6 +1,6 @@
 @include('admin.partials.header', [
-    'pageTitle' => 'Social Media Reports',
-    'active' => 'social-media-reports',
+'pageTitle' => 'Social Media Reports',
+'active' => 'daily-metrics-reports',
 ])
 
 <div class="dashboard-content report-content">
@@ -18,26 +18,26 @@
     </section>
 
     @if(session('success'))
-        <div class="report-flash" role="status">{{ session('success') }}</div>
+    <div class="report-flash" role="status">{{ session('success') }}</div>
     @endif
 
     <section class="client-card-grid">
-        @forelse($clients as $client)
-            <a href="{{ route('social-media-reports.client-services', $client->id) }}"
-               class="client-card">
-                <div class="client-card__avatar">
-                    {{ strtoupper(substr($client->name, 0, 1)) }}
-                </div>
-                <div class="client-card__body">
-                    <h3>{{ $client->name }}</h3>
-                    <p>{{ $client->assignServices_count }}
-                        {{ \Illuminate\Support\Str::plural('assigned service', $client->assignServices_count) }}
-                    </p>
-                </div>
-                <span class="client-card__arrow">→</span>
-            </a>
+        @forelse($clients->where('status', true) as $client)
+        <a href="{{ route('daily-metrics-reports.client-services', $client->id) }}"
+            class="client-card">
+            <div class="client-card__avatar">
+                {{ strtoupper(substr($client->name, 0, 1)) }}
+            </div>
+            <div class="client-card__body">
+                <h3>{{ $client->name }}</h3>
+                <p>{{ $client->assignServices_count }}
+                    {{ \Illuminate\Support\Str::plural('assigned service', $client->assignServices_count) }}
+                </p>
+            </div>
+            <span class="client-card__arrow">→</span>
+        </a>
         @empty
-            <p class="empty-state">No clients found. <a href="{{ route('clients.create') }}">Add one</a>.</p>
+        <p class="empty-state">No active clients found. <a href="{{ route('clients.create') }}">Add one</a>.</p>
         @endforelse
     </section>
 </div>
