@@ -8,6 +8,7 @@ use App\Http\Controllers\SeoReportController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SocialMediaReportController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -19,6 +20,18 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:5,1')
         ->name('login.store');
 });
+
+    // Route::get('/clear-cache', function () {
+    //     Artisan::call('optimize:clear');
+
+    //     return 'Laravel optimization and route caches cleared successfully.';
+    // });
+    
+//     Route::get('/storage-link', function () {
+//     Artisan::call('storage:link');
+
+//     return 'Storage link created successfully.';
+// });
 
 Route::middleware('auth')->group(function () {
 
@@ -107,6 +120,7 @@ Route::middleware('auth')->group(function () {
         'daily-metrics-reports/assign-services/{assignService}/previous-metrics',
         [SocialMediaReportController::class, 'previousMetrics']
     )->name('daily-metrics-reports.previous-metrics');
+    
 
     Route::get(
         'daily-metrics-reports/service/{assignService}/pdf',

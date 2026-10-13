@@ -15,6 +15,7 @@
     @if(!empty($includeBootstrap))
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     @endif
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/360degreeinfo.webp') }}">
     {{-- SweetAlert2 --}}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>

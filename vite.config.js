@@ -3,7 +3,7 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-    base: '/360-seo-monthly-report/',
+    base: '/360-seo-monthly-reports/build/',
 
     plugins: [
         laravel({

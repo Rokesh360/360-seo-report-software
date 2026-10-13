@@ -87,10 +87,13 @@
                         </tr>
 
                     @empty
-                        <tr>
-                            <td colspan="4">
+                        <tr class="empty-row">
+                            <td></td>
+                            <td></td>
+                            <td class="empty-state-cell">
                                 <p class="empty-state">No services assigned to this client yet.</p>
                             </td>
+                            <td></td>
                         </tr>
                     @endforelse
                 </tbody>
