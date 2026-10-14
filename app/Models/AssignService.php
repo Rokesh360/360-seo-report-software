@@ -21,6 +21,7 @@ class AssignService extends Model
         'from_date',
         'to_date',
         'title',
+        'budget',
         'description',
         'status',
         'platforms',

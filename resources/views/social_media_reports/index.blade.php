@@ -1,6 +1,6 @@
 @include('admin.partials.header', [
 'pageTitle' => 'Social Media Reports',
-'active' => 'daily-metrics-reports',
+'active' => 'metrics-reports',
 ])
 
 <div class="dashboard-content report-content">
@@ -23,7 +23,7 @@
 
     <section class="client-card-grid">
         @forelse($clients->where('status', true) as $client)
-        <a href="{{ route('daily-metrics-reports.client-services', $client->id) }}"
+        <a href="{{ route('metrics-reports.client-services', $client->id) }}"
             class="client-card">
             <div class="client-card__avatar">
                 {{ strtoupper(substr($client->name, 0, 1)) }}

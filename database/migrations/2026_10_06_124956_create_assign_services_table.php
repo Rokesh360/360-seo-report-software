@@ -14,9 +14,10 @@ return new class extends Migration
         Schema::create('assign_services', function (Blueprint $table) {
             $table->id();
             $table->foreignId('client_id')->constrained('clients')->cascadeOnDelete();
-            $table->foreignId('service_id')->constrained('services')->cascadeOnDelete();
+            $table->json('service_id');
             $table->date('from_date');
             $table->date('to_date');
+            $table->integer('budget');
             $table->string('title');
             $table->longText('description')->nullable();
             $table->integer('status')->default(1);

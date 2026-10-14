@@ -29,7 +29,7 @@
                     <tr>
                         <th>S.NO</th>
                         <th>CLIENT</th>
-                        <th>WEBSITE</th>
+                        <th>DATE OF CAMPAIGN</th>
                         <th>CONTACT</th>
                         <th>STATUS</th>
                         <th class="report-actions-heading" style="text-align: center;">ACTIONS</th>
@@ -43,7 +43,7 @@
                             <strong class="report-client">{{ $client->name }}</strong>
                             <span class="report-preparer">{{ $client->email ?: 'No email' }}</span>
                         </td>
-                        <td><span class="report-website">{{ $client->website }}</span></td>
+                        <td><span class="report-website">{{ $client->date_of_campaign ? \Carbon\Carbon::parse($client->date_of_campaign)->format('d-m-Y') : '-' }}</span></td>
                         <td>
                             <span class="client-contact">{{ $client->email ?: 'No email' }}</span>
                             <span class="report-preparer">{{ $client->phone ?: 'No phone' }}</span>
@@ -133,7 +133,7 @@
             columnDefs: [{
                 orderable: false,
                 searchable: false,
-                targets: [0, 5] // S.NO and ACTIONS columns
+                targets: [0, 5]
             }],
             language: {
                 search: '',
@@ -143,6 +143,68 @@
                 infoEmpty: 'No clients available',
                 zeroRecords: 'No matching clients found',
                 emptyTable: 'No clients available'
+            },
+            initComplete: function() {
+                const api = this.api();
+                const container = $(api.table().container());
+
+                const toolbar = $(`
+        <div class="dt-date-range-toolbar">
+            <div class="dt-date-range-filter">
+                <label for="campaign-from-date">From Date</label>
+                <input
+                    type="date"
+                    id="campaign-from-date"
+                    value="{{ $fromDate ?? '' }}"
+                >
+
+                <label for="campaign-to-date">To Date</label>
+                <input
+                    type="date"
+                    id="campaign-to-date"
+                    value="{{ $toDate ?? '' }}"
+                >
+            </div>
+        </div>
+    `);
+
+                // Place the date filters beside the DataTables search.
+                const searchContainer = container.find('.dt-search');
+                searchContainer.addClass('dt-toolbar-search');
+
+                searchContainer.after(toolbar);
+
+                function applyDateRange() {
+                    const fromDate = $('#campaign-from-date').val();
+                    const toDate = $('#campaign-to-date').val();
+
+                    if (fromDate && toDate && toDate < fromDate) {
+                        return;
+                    }
+
+                    const url = new URL(window.location.href);
+
+                    if (fromDate) {
+                        url.searchParams.set('from_date', fromDate);
+                    } else {
+                        url.searchParams.delete('from_date');
+                    }
+
+                    if (toDate) {
+                        url.searchParams.set('to_date', toDate);
+                    } else {
+                        url.searchParams.delete('to_date');
+                    }
+
+                    url.searchParams.delete('page');
+
+                    window.location.href = url.toString();
+                }
+
+                $('#campaign-from-date, #campaign-to-date').on(
+                    'change',
+                    applyDateRange
+                );
             }
         });
     });

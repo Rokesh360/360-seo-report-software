@@ -253,15 +253,8 @@
         $showCreativeAudience = $showWhatsApp || $showLeadGen || $isAll;
         $showTopPosts         = $showEngagement;
 
-        $reportAssignServices = collect((array) $report->assign_service_ids)
-            ->map(fn ($id) => ($assignServices ?? [])[(int) $id] ?? null)
-            ->filter()
-            ->values();
-        $clientName = $reportAssignServices
-            ->map(fn ($assignService) => $assignService->client?->name)
-            ->filter()
-            ->unique()
-            ->implode(', ') ?: ($report->client_names ?: '—');
+        $reportAssignService = ($assignServices ?? [])[(int) $report->assign_service_id] ?? null;
+        $clientName = $reportAssignService?->client?->name ?: ($report->client_names ?: '—');
 
         // Section numbering for "all"
         $sectionNo = 0;

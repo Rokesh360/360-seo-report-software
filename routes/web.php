@@ -81,7 +81,7 @@ Route::middleware('auth')->group(function () {
      ============================================================ */
 
     // Custom wizard-style entry points (Client → Assign Service → Metrics)
-    Route::prefix('daily-metrics-reports')->name('daily-metrics-reports.')->group(function () {
+    Route::prefix('metrics-reports')->name('metrics-reports.')->group(function () {
 
         // Step 1 → Client cards
         // (handled by the resource `index` — no extra route needed)
@@ -107,24 +107,24 @@ Route::middleware('auth')->group(function () {
     });
 
     // Standard resource CRUD (index, create, store, edit, update, destroy)
-    Route::resource('daily-metrics-reports', SocialMediaReportController::class)
+    Route::resource('metrics-reports', SocialMediaReportController::class)
         ->except(['show']);
 
     Route::get(
-        'daily-metrics-reports/assign-services',
+        'metrics-reports/assign-services',
         [SocialMediaReportController::class, 'assignServicesList']
     )
-        ->name('daily-metrics-reports.assign-services');
+        ->name('metrics-reports.assign-services');
 
     Route::get(
-        'daily-metrics-reports/assign-services/{assignService}/previous-metrics',
+        'metrics-reports/assign-services/{assignService}/previous-metrics',
         [SocialMediaReportController::class, 'previousMetrics']
-    )->name('daily-metrics-reports.previous-metrics');
+    )->name('metrics-reports.previous-metrics');
     
 
     Route::get(
-        'daily-metrics-reports/service/{assignService}/pdf',
+        'metrics-reports/service/{assignService}/pdf',
         [SocialMediaReportController::class, 'exportServicePdf']
     )
-        ->name('daily-metrics-reports.service-pdf');
+        ->name('metrics-reports.service-pdf');
 });

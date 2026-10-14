@@ -8,20 +8,35 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ClientRepository
 {
-    public function paginate(int $perPage = 10): LengthAwarePaginator
-    {
-        return Client::withCount('seoReports')->latest()->paginate($perPage);
+    public function paginate(
+        int $perPage = 10,
+        ?string $fromDate = null,
+        ?string $toDate = null
+    ): LengthAwarePaginator {
+        return Client::withCount('seoReports')
+            ->when($fromDate, function ($query) use ($fromDate) {
+                $query->whereDate('date_of_campaign', '>=', $fromDate);
+            })
+            ->when($toDate, function ($query) use ($toDate) {
+                $query->whereDate('date_of_campaign', '<=', $toDate);
+            })
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
-    // used for the dropdown in the SEO report form
     public function activeList(): Collection
     {
-        return Client::where('status', true)->orderBy('name')->get(['id', 'name', 'website']);
+        return Client::where('status', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'website']);
     }
 
     public function withSeoReportCounts(): Collection
     {
-        return Client::withCount('seoReports')->orderBy('name')->get();
+        return Client::withCount('seoReports')
+            ->orderBy('name')
+            ->get();
     }
 
     public function find(int $id): Client
@@ -43,7 +58,7 @@ class ClientRepository
     }
 
     /**
-     * Returns false when the client still has reports (cannot delete).
+     * Returns false when the client still has reports.
      */
     public function delete(int $id): bool
     {

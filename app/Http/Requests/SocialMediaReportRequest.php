@@ -18,23 +18,16 @@ class SocialMediaReportRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $assignmentIds = $this->input('assign_service_ids');
-
-        if (is_array($assignmentIds)) {
-            $this->merge([
-                'assign_service_ids' => array_map(
-                    fn ($id) => filter_var($id, FILTER_VALIDATE_INT) !== false ? (int) $id : $id,
-                    $assignmentIds
-                ),
-            ]);
+        $assignmentId = $this->input('assign_service_id');
+        if (is_scalar($assignmentId) && filter_var($assignmentId, FILTER_VALIDATE_INT) !== false) {
+            $this->merge(['assign_service_id' => (int) $assignmentId]);
         }
     }
 
     public function attributes(): array
     {
         return [
-            'assign_service_ids'   => 'assign service',
-            'assign_service_ids.*' => 'assign service',
+            'assign_service_id' => 'assign service',
             'total_conversations'  => 'total WhatsApp conversations',
             'total_enquiries'      => 'total WhatsApp enquiries',
             'whatsapp_clicks'      => 'WhatsApp clicks',
@@ -64,7 +57,7 @@ class SocialMediaReportRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'assign_service_ids.required' => 'Select at least one assign service.',
+            'assign_service_id.required' => 'Select an assign service.',
             'campaign_results.*.name.required' => 'Row :position: campaign / ad set name is required.',
             'campaign_results.*.result.required' => 'Row :position: result is required.',
             'campaign_results.*.spend.required' => 'Row :position: spend is required.',
@@ -78,8 +71,7 @@ class SocialMediaReportRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'assign_service_ids'   => ['required', 'array', 'min:1'],
-            'assign_service_ids.*' => ['integer', 'distinct', 'exists:assign_services,id'],
+            'assign_service_id' => ['required', 'integer', 'exists:assign_services,id'],
         ];
 
         $types = $this->selectedReportTypes();
@@ -108,7 +100,7 @@ class SocialMediaReportRequest extends FormRequest
                 'campaign_results'          => ['required', 'array', 'min:1'],
                 'campaign_results.*.name'   => ['required', 'string'],
                 'campaign_results.*.result' => ['required', 'string'],
-                'campaign_results.*.spend'  => ['required', 'string'],
+                'campaign_results.*.spend' => ['required', 'integer', 'min:0'],
                 'campaign_results.*.note'   => ['required', 'string'],
             ];
         }
@@ -134,21 +126,18 @@ class SocialMediaReportRequest extends FormRequest
 
     private function selectedReportTypes(): array
     {
-        $assignmentIds = collect((array) $this->input('assign_service_ids', []))
-            ->filter(fn ($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        if ($assignmentIds->isEmpty()) {
+        $rawAssignmentId = $this->input('assign_service_id');
+        if (! is_scalar($rawAssignmentId)) {
             return [];
         }
 
-        $serviceIds = AssignService::query()
-            ->whereIn('id', $assignmentIds)
-            ->get(['service_id'])
-            ->pluck('service_id')
-            ->flatMap(fn ($ids) => is_array($ids) ? $ids : array_filter([(int) $ids]))
+        $assignmentId = filter_var($rawAssignmentId, FILTER_VALIDATE_INT);
+        if ($assignmentId === false) {
+            return [];
+        }
+
+        $serviceIds = AssignService::query()->find((int) $assignmentId)?->service_id;
+        $serviceIds = collect(is_array($serviceIds) ? $serviceIds : [(int) $serviceIds])
             ->filter()
             ->unique()
             ->values();
@@ -162,7 +151,7 @@ class SocialMediaReportRequest extends FormRequest
         return Service::query()
             ->whereIn('id', $serviceIds)
             ->pluck('name')
-            ->map(fn ($name) => $serviceNameToType[$name] ?? null)
+            ->map(fn($name) => $serviceNameToType[$name] ?? null)
             ->filter()
             ->unique()
             ->values()
@@ -172,56 +161,20 @@ class SocialMediaReportRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if (! $this->isMethod('post')) {
+            $assign = AssignService::find((int) $this->input('assign_service_id'));
+            $budget = (int) ($assign?->budget ?? 0);
+
+            if ($budget <= 0) {
                 return;
             }
 
-            foreach ($validator->errors()->keys() as $key) {
-                if ($key === 'assign_service_ids' || str_starts_with($key, 'assign_service_ids.')) {
-                    return;
-                }
-            }
+            $spent = collect((array) $this->input('campaign_results', []))
+                ->sum(fn($row) => (int) ($row['spend'] ?? 0));
 
-            $ids = collect((array) $this->input('assign_service_ids', []))
-                ->filter(fn ($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
-                ->map(fn ($id) => (int) $id)
-                ->unique()
-                ->values()
-                ->all();
-
-            if ($ids === []) {
-                return;
-            }
-
-            $today = Carbon::today();
-            $eligibleIds = AssignService::coveringDate($today)
-                ->whereIn('id', $ids)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-
-            if (count($eligibleIds) !== count($ids)) {
+            if ($spent > $budget) {
                 $validator->errors()->add(
-                    'assign_service_ids',
-                    'Today must fall within the date range of every selected assign service to submit this report.'
-                );
-
-                return;
-            }
-
-            $alreadyReported = SocialMediaReport::query()
-                ->whereDate('created_at', $today)
-                ->where(function ($query) use ($ids) {
-                    foreach ($ids as $id) {
-                        $query->orWhere(fn ($reportQuery) => $reportQuery->forAssignService($id));
-                    }
-                })
-                ->exists();
-
-            if ($alreadyReported) {
-                $validator->errors()->add(
-                    'assign_service_ids',
-                    'A report entry already exists today for one or more selected assign services.'
+                    'campaign_results',
+                    'Total spend (₹' . number_format($spent) . ') exceeds the available budget (₹' . number_format($budget) . ').'
                 );
             }
         });

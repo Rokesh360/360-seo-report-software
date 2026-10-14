@@ -71,13 +71,31 @@
             </div>
 
             <div class="col-md-6">
+                <label class="form-label" for="date-of-campaign">
+                    Date of Campaign <span class="required-star" aria-hidden="true">*</span>
+                </label>
+
+                <input
+                    id="date-of-campaign"
+                    type="date"
+                    name="date_of_campaign"
+                    class="form-control @error('date_of_campaign') is-invalid @enderror"
+                    value="{{ $v('date_of_campaign') }}"
+                    required>
+
+                @error('date_of_campaign')
+                <span class="field-error">{{ $message }}</span>
+                @enderror
+            </div>
+
+            <div class="col-md-6">
                 <label class="form-label" for="client-status">
                     Status <span class="required-star" aria-hidden="true">*</span>
                 </label>
                 <select id="client-status" name="status"
                     class="form-select @error('status') is-invalid @enderror">
-                    <option value="1" @selected((int) $v('status', 1) === 1)>Active</option>
-                    <option value="0" @selected((int) $v('status', 1) === 0)>Inactive</option>
+                    <option value="1" @selected((int) $v('status', 1)===1)>Active</option>
+                    <option value="0" @selected((int) $v('status', 1)===0)>Inactive</option>
                 </select>
                 @error('status')
                 <span class="field-error">{{ $message }}</span>

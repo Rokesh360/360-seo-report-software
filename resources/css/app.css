@@ -2146,6 +2146,61 @@ div.dt-container div.dt-layout-row {
     padding-bottom: 0;
 }
 
+/* Centered campaign date range toolbar */
+.dt-date-range-toolbar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 12px 0 18px;
+}
+
+.dt-date-range-filter {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.dt-date-range-filter label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0b2350;
+}
+
+.dt-date-range-filter input {
+    width: 180px;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #d7dce3;
+    border-radius: 6px;
+    background: #fff;
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.dt-date-range-filter input:focus {
+    outline: none;
+    border-color: #0b2350;
+    box-shadow: 0 0 0 3px rgba(11, 35, 80, 0.1);
+}
+
+@media (max-width: 576px) {
+    .dt-date-range-filter {
+        width: 100%;
+        padding: 0 12px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .dt-date-range-filter input {
+        width: 100%;
+    }
+}
+
 .report-form {
     max-width: 1120px;
 }

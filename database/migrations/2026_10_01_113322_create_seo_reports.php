@@ -14,16 +14,20 @@ return new class extends Migration
 
         Schema::create('seo_reports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('client_id');
 
-            $table->string('reporting_period'); // e.g. 2026-08
-            $table->string('prepared_by')->default('360DegreeInfo SEO Team');
+            $table->foreignId('client_id')
+                ->constrained('clients')
+                ->restrictOnDelete();
+
+            $table->string('reporting_period');
+            $table->string('prepared_by')
+                ->default('360DegreeInfo SEO Team');
 
             $table->text('overview')->nullable();
             $table->json('on_page_items')->nullable();
 
             $table->string('seo_score_image')->nullable();
-
+            
             $table->json('performance_images')->nullable();
             $table->json('backlinks_items')->nullable();
 

@@ -18,27 +18,6 @@
             Overview
         </a>
 
-        <!-- REPORTS GROUP -->
-        <div class="nav-group-label">Reports</div>
-        <a @class(['side-link', 'is-active'=> $active === 'reports']) href="{{ route('seo-reports.index') }}" @if($active === 'reports') aria-current="page" @endif>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M5 2.75h7l3 3v11.5H5z" />
-                <path d="M12 2.75v3h3M7.5 9h5M7.5 12h5M7.5 15h3" />
-            </svg>
-            SEO reports
-        </a>
-        <a @class(['side-link', 'is-active'=> $active === 'daily-metrics-reports'])
-            href="{{ route('daily-metrics-reports.index') }}"
-            @if($active === 'daily-metrics-reports') aria-current="page" @endif>
-            <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor"
-                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 2.5h7l4 4V17a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" />
-                <path d="M12 2.5v4h4" />
-                <path d="M7.5 12v3M10 10v5M12.5 13v2" />
-            </svg>
-            Daily metrics reports
-        </a>
-
         <!-- MASTER GROUP -->
         <div class="nav-group-label">Master</div>
         <a @class(['side-link', 'is-active'=> $active === 'clients']) href="{{ route('clients.index') }}" @if($active === 'clients') aria-current="page" @endif>
@@ -70,6 +49,27 @@
                 <path d="M13 13.5l1.5 1.5L17 12" />
             </svg>
             Assign services
+        </a>
+
+         <!-- REPORTS GROUP -->
+        <div class="nav-group-label">Reports</div>
+        <a @class(['side-link', 'is-active'=> $active === 'reports']) href="{{ route('seo-reports.index') }}" @if($active === 'reports') aria-current="page" @endif>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 2.75h7l3 3v11.5H5z" />
+                <path d="M12 2.75v3h3M7.5 9h5M7.5 12h5M7.5 15h3" />
+            </svg>
+            SEO reports
+        </a>
+        <a @class(['side-link', 'is-active'=> $active === 'metrics-reports'])
+            href="{{ route('metrics-reports.index') }}"
+            @if($active === 'metrics-reports') aria-current="page" @endif>
+            <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 2.5h7l4 4V17a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" />
+                <path d="M12 2.5v4h4" />
+                <path d="M7.5 12v3M10 10v5M12.5 13v2" />
+            </svg>
+            Metrics reports
         </a>
     </nav>
 

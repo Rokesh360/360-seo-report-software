@@ -1,6 +1,6 @@
 @include('admin.partials.header', [
 'pageTitle' => 'Metrics — ' . ($assignService->title ?? 'Service'),
-'active' => 'daily-metrics-reports',
+'active' => 'metrics-reports',
 ])
 
 <div class="dashboard-content report-content">
@@ -8,7 +8,7 @@
     <section class="page-heading report-page-heading">
         <div>
             <div class="eyebrow">
-                <a href="{{ route('daily-metrics-reports.client-services', $assignService->client_id) }}">
+                <a href="{{ route('metrics-reports.client-services', $assignService->client_id) }}">
                     ← {{ $assignService->client->name }}
                 </a>
             </div>
@@ -64,7 +64,7 @@
 
                         {{-- Previous Metrics → dedicated page --}}
                         <td>
-                            <a href="{{ route('daily-metrics-reports.previous-metrics', $assignService->id) }}"
+                            <a href="{{ route('metrics-reports.previous-metrics', $assignService->id) }}"
                                 class="button button-secondary btn-previous-metrics"
                                 title="View all previous metrics">
                                 <span>
@@ -79,7 +79,7 @@
                         <td>
                             @if($todayEntryMissing && $canAddToday)
                             <div class="today-actions">
-                                <a href="{{ route('daily-metrics-reports.create', ['assign_service_id' => $assignService->id]) }}"
+                                <a href="{{ route('metrics-reports.create', ['assign_service_id' => $assignService->id]) }}"
                                     class="btn-add-today"
                                     title="No entry for today — add one">
                                     + Add today
@@ -93,12 +93,12 @@
                                 <span class="service-dates">
                                     {{ $today->created_at?->format('d M Y') }}
                                 </span>
-                                <a href="{{ route('daily-metrics-reports.pdf', $today->id) }}"
+                                <a href="{{ route('metrics-reports.pdf', $today->id) }}"
                                     class="btn-view"
                                     title="View report">
                                     View
                                 </a>
-                                <form action="{{ route('daily-metrics-reports.destroy', $today->id) }}"
+                                <form action="{{ route('metrics-reports.destroy', $today->id) }}"
                                     method="POST"
                                     class="inline-form"
                                     onsubmit="return confirm('Move this report to trash?')">

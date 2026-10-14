@@ -20,6 +20,7 @@ class ClientRequest extends FormRequest
             'website' => ['required', 'string', 'max:255'],
             'email'   => ['required', 'email', 'max:255'],
             'phone'   => ['required', 'string', 'max:30'],
+            'date_of_campaign' => ['required', 'date'],
             'status'  => ['required', 'boolean'],
         ];
     }
@@ -33,6 +34,8 @@ class ClientRequest extends FormRequest
             'website.max'      => 'Website must not exceed 255 characters.',
             'email.email'      => 'Please enter a valid email address.',
             'phone.max'        => 'Phone must not exceed 30 characters.',
+            'date_of_campaign.required' => 'Please enter the date of campaign.',
+            'date_of_campaign.date'     => 'Please enter a valid date for the campaign.',
             'status.required'  => 'Please choose a status.',
             'status.boolean'   => 'Status must be Active or Inactive.',
         ];

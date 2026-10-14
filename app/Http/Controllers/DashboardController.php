@@ -102,14 +102,13 @@ class DashboardController extends Controller
     {
         return SocialMediaReport::query()
             ->whereBetween('created_at', [$from->toDateString(), $to->toDateString()])
+            ->when($scopedIds !== null, fn ($query) => $query->whereIn('assign_service_id', $scopedIds))
             ->get([
-                'id', 'assign_service_ids', 'created_at',
+                'id', 'assign_service_id', 'created_at',
                 'reach', 'impressions', 'whatsapp_clicks', 'link_clicks',
                 'total_leads', 'total_enquiries',
                 'reactions', 'comments', 'shares', 'saves',
-            ])
-            ->filter(fn ($r) => $scopedIds === null
-                || array_intersect($scopedIds, array_map('intval', (array) $r->assign_service_ids)) !== []);
+            ]);
     }
 
     private function totals(Collection $r): array
@@ -259,9 +258,8 @@ class DashboardController extends Controller
         }
 
         foreach ($reports as $r) {
-            $cids = collect((array) $r->assign_service_ids)
-                ->map(fn ($id) => $assignById[(int) $id]->client_id ?? null)
-                ->filter()->unique();
+            $clientId = $assignById[(int) $r->assign_service_id]->client_id ?? null;
+            $cids = collect([$clientId])->filter();
 
             foreach ($cids as $cid) {
                 $rows[$cid] ??= $this->blankRow($assignById->firstWhere('client_id', $cid)?->client?->name);

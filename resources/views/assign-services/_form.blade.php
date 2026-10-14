@@ -1,33 +1,33 @@
 @include('admin.partials.header', [
-    'pageTitle' => $title,
-    'active' => 'assign-services',
-    'bodyClass' => 'admin-page report-page',
-    'includeBootstrap' => true,
+'pageTitle' => $title,
+'active' => 'assign-services',
+'bodyClass' => 'admin-page report-page',
+'includeBootstrap' => true,
 ])
 
 @php
-    $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
+$v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
 
-    // Multi-select: existing service IDs
-    $selectedServiceIds = old('service_id', $assignService?->service_id ?? []);
-    if (!is_array($selectedServiceIds)) {
-        $selectedServiceIds = $selectedServiceIds ? [(int) $selectedServiceIds] : [];
-    }
-    $selectedServiceIds = array_map('intval', $selectedServiceIds);
+// Multi-select: existing service IDs
+$selectedServiceIds = old('service_id', $assignService?->service_id ?? []);
+if (!is_array($selectedServiceIds)) {
+$selectedServiceIds = $selectedServiceIds ? [(int) $selectedServiceIds] : [];
+}
+$selectedServiceIds = array_map('intval', $selectedServiceIds);
 
-    $reportTypeByServiceName = [
-        'WhatsApp Meta Ads Monthly Report' => 'whatsapp_meta_ads',
-        'Lead Generation Ads Monthly Report' => 'lead_generation_ads',
-        'Social Media Engagement Monthly Report' => 'social_media_engagement',
-    ];
-    $reportTypesByServiceId = $services->mapWithKeys(fn ($service) => [
-        $service->id => $reportTypeByServiceName[$service->name] ?? '',
-    ]);
-    $selectedReportTypes = collect($selectedServiceIds)
-        ->map(fn ($serviceId) => $reportTypesByServiceId[$serviceId] ?? '')
-        ->filter()
-        ->unique();
-    $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
+$reportTypeByServiceName = [
+'WhatsApp Meta Ads Monthly Report' => 'whatsapp_meta_ads',
+'Lead Generation Ads Monthly Report' => 'lead_generation_ads',
+'Social Media Engagement Monthly Report' => 'social_media_engagement',
+];
+$reportTypesByServiceId = $services->mapWithKeys(fn ($service) => [
+$service->id => $reportTypeByServiceName[$service->name] ?? '',
+]);
+$selectedReportTypes = collect($selectedServiceIds)
+->map(fn ($serviceId) => $reportTypesByServiceId[$serviceId] ?? '')
+->filter()
+->unique();
+$showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
 @endphp
 
 <div class="dashboard-content report-content">
@@ -36,15 +36,15 @@
             <h1>{{ $title }}</h1>
             <p class="page-subtitle">
                 @if($client)
-                    Assigning services to <strong>{{ $client->name }}</strong> —
-                    select service(s) and set the validity period.
+                Assigning services to <strong>{{ $client->name }}</strong> —
+                select service(s) and set the validity period.
                 @else
-                    Select service(s) and set the validity period.
+                Select service(s) and set the validity period.
                 @endif
             </p>
         </div>
         <a href="{{ route('assign-services.index', $client ? ['client' => $client->id] : []) }}"
-           class="button button-secondary">
+            class="button button-secondary">
             Back to assign services
         </a>
     </section>
@@ -62,7 +62,7 @@
             <div class="card-body row g-3">
 
                 {{-- Service multi-select --}}
-                <div class="col-6">
+                <div class="col-4">
                     <label class="form-label">
                         Service <span class="required-star" aria-hidden="true">*</span>
                     </label>
@@ -72,22 +72,22 @@
                             <span id="serviceTriggerLabel">-- Select Service(s) --</span>
                             <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
                                 <path d="M6 8l4 4 4-4" fill="none" stroke="currentColor"
-                                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
 
                         <div class="multi-select-panel" id="servicePanel">
                             @forelse($services as $service)
-                                <label class="multi-select-option">
-                                    <input type="checkbox"
-                                           name="service_id[]"
-                                           value="{{ $service->id }}"
-                                         data-report-type="{{ $reportTypesByServiceId[$service->id] ?? '' }}"
-                                           @checked(in_array((int) $service->id, $selectedServiceIds, true))>
-                                    <span>{{ $service->name }}</span>
-                                </label>
+                            <label class="multi-select-option">
+                                <input type="checkbox"
+                                    name="service_id[]"
+                                    value="{{ $service->id }}"
+                                    data-report-type="{{ $reportTypesByServiceId[$service->id] ?? '' }}"
+                                    @checked(in_array((int) $service->id, $selectedServiceIds, true))>
+                                <span>{{ $service->name }}</span>
+                            </label>
                             @empty
-                                <div class="multi-select-empty">No services available.</div>
+                            <div class="multi-select-empty">No services available.</div>
                             @endforelse
                         </div>
                     </div>
@@ -97,7 +97,7 @@
                 </div>
 
                 {{-- Title --}}
-                <div class="col-6">
+                <div class="col-4">
                     <label class="form-label">
                         Title <span class="required-star" aria-hidden="true">*</span>
                     </label>
@@ -106,6 +106,17 @@
                         value="{{ $v('title') }}"
                         placeholder="e.g. SEO Monthly Retainer – Q1 2026" required>
                     @error('title')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-4">
+                    <label class="form-label">
+                        Budget <span class="required-star" aria-hidden="true">*</span>
+                    </label>
+                    <input type="number" name="budget" step="1" min="0"
+                        class="form-control @error('budget') is-invalid @enderror"
+                        value="{{ old('budget', $assignService?->budget ?? '') }}"
+                        placeholder="e.g. 50000" required>
+                    @error('budget')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
                 {{-- From / To --}}
@@ -135,8 +146,8 @@
                 <div class="col-md-6">
                     <label class="form-label">Platforms</label>
                     <input name="platforms" class="form-control @error('platforms') is-invalid @enderror"
-                           value="{{ $v('platforms') }}"
-                           placeholder="e.g. Instagram, Facebook, Google">
+                        value="{{ $v('platforms') }}"
+                        placeholder="e.g. Instagram, Facebook, Google">
                     @error('platforms')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -144,7 +155,7 @@
                 <div class="col-md-6">
                     <label class="form-label">Campaign Objective</label>
                     <input name="campaign_objective" class="form-control @error('campaign_objective') is-invalid @enderror"
-                           value="{{ $v('campaign_objective') }}">
+                        value="{{ $v('campaign_objective') }}">
                     @error('campaign_objective')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -152,7 +163,7 @@
                 <div class="col-12">
                     <label class="form-label">Campaign Overview</label>
                     <textarea name="campaign_overview" rows="2"
-                              class="form-control @error('campaign_overview') is-invalid @enderror">{{ $v('campaign_overview') }}</textarea>
+                        class="form-control @error('campaign_overview') is-invalid @enderror">{{ $v('campaign_overview') }}</textarea>
                     @error('campaign_overview')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -160,7 +171,7 @@
                 <div class="col-md-6">
                     <label class="form-label">Target Audience</label>
                     <textarea name="target_audience" rows="2"
-                              class="form-control @error('target_audience') is-invalid @enderror">{{ $v('target_audience') }}</textarea>
+                        class="form-control @error('target_audience') is-invalid @enderror">{{ $v('target_audience') }}</textarea>
                     @error('target_audience')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -168,7 +179,7 @@
                 <div class="col-md-6">
                     <label class="form-label">Main Campaign Focus</label>
                     <textarea name="campaign_focus" rows="2"
-                              class="form-control @error('campaign_focus') is-invalid @enderror">{{ $v('campaign_focus') }}</textarea>
+                        class="form-control @error('campaign_focus') is-invalid @enderror">{{ $v('campaign_focus') }}</textarea>
                     @error('campaign_focus')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -176,7 +187,7 @@
                 <div class="col-12">
                     <label class="form-label">Key Highlights</label>
                     <textarea name="key_highlights" rows="2"
-                              class="form-control @error('key_highlights') is-invalid @enderror">{{ $v('key_highlights') }}</textarea>
+                        class="form-control @error('key_highlights') is-invalid @enderror">{{ $v('key_highlights') }}</textarea>
                     @error('key_highlights')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -205,10 +216,10 @@
         </div>
 
         @php
-            $narrativeValue = fn ($group, $field) => old(
-                $group . '.' . $field,
-                data_get($assignService?->{$group}, $field, '')
-            );
+        $narrativeValue = fn ($group, $field) => old(
+        $group . '.' . $field,
+        data_get($assignService?->{$group}, $field, '')
+        );
         @endphp
 
         <div class="assignment-report-narrative" data-report-types="whatsapp_meta_ads lead_generation_ads social_media_engagement" @if(! $showReportNarrativeFields) hidden @endif>
@@ -242,16 +253,16 @@
                 <div class="card-header">Monthly Summary</div>
                 <div class="card-body row g-3">
                     @foreach([
-                        'overall' => 'Overall performance',
-                        'enquiry' => 'Enquiry / lead generation',
-                        'engagement' => 'Audience engagement',
-                        'brand_visibility' => 'Brand visibility',
+                    'overall' => 'Overall performance',
+                    'enquiry' => 'Enquiry / lead generation',
+                    'engagement' => 'Audience engagement',
+                    'brand_visibility' => 'Brand visibility',
                     ] as $field => $label)
-                        <div class="col-md-6">
-                            <label class="form-label" for="summary-{{ $field }}">{{ $label }}</label>
-                            <textarea id="summary-{{ $field }}" name="monthly_summary[{{ $field }}]" rows="2" class="form-control @error('monthly_summary.' . $field) is-invalid @enderror">{{ $narrativeValue('monthly_summary', $field) }}</textarea>
-                            @error('monthly_summary.' . $field)<span class="field-error">{{ $message }}</span>@enderror
-                        </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="summary-{{ $field }}">{{ $label }}</label>
+                        <textarea id="summary-{{ $field }}" name="monthly_summary[{{ $field }}]" rows="2" class="form-control @error('monthly_summary.' . $field) is-invalid @enderror">{{ $narrativeValue('monthly_summary', $field) }}</textarea>
+                        @error('monthly_summary.' . $field)<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
                     @endforeach
                 </div>
             </div>
@@ -260,18 +271,18 @@
                 <div class="card-header">Next Month Plan</div>
                 <div class="card-body row g-3">
                     @foreach([
-                        'test_creatives' => 'Test new creatives',
-                        'audience_targeting' => 'Improve audience targeting',
-                        'retargeting' => 'Retarget interested users',
-                        'messaging' => 'Test different messaging',
-                        'high_performers' => 'Focus on high-performing audiences',
-                        'quality_leads' => 'Increase quality leads / enquiries',
+                    'test_creatives' => 'Test new creatives',
+                    'audience_targeting' => 'Improve audience targeting',
+                    'retargeting' => 'Retarget interested users',
+                    'messaging' => 'Test different messaging',
+                    'high_performers' => 'Focus on high-performing audiences',
+                    'quality_leads' => 'Increase quality leads / enquiries',
                     ] as $field => $label)
-                        <div class="col-md-6">
-                            <label class="form-label" for="plan-{{ $field }}">{{ $label }}</label>
-                            <textarea id="plan-{{ $field }}" name="next_month_plan[{{ $field }}]" rows="2" class="form-control @error('next_month_plan.' . $field) is-invalid @enderror">{{ $narrativeValue('next_month_plan', $field) }}</textarea>
-                            @error('next_month_plan.' . $field)<span class="field-error">{{ $message }}</span>@enderror
-                        </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="plan-{{ $field }}">{{ $label }}</label>
+                        <textarea id="plan-{{ $field }}" name="next_month_plan[{{ $field }}]" rows="2" class="form-control @error('next_month_plan.' . $field) is-invalid @enderror">{{ $narrativeValue('next_month_plan', $field) }}</textarea>
+                        @error('next_month_plan.' . $field)<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
                     @endforeach
                 </div>
             </div>
@@ -282,7 +293,7 @@
                 {{ $method === 'POST' ? 'Assign service' : 'Update service' }}
             </button>
             <a href="{{ route('assign-services.index', $client ? ['client' => $client->id] : []) }}"
-               class="button button-secondary">
+                class="button button-secondary">
                 Cancel
             </a>
         </div>
@@ -293,80 +304,80 @@
 {{-- SCRIPTS --}}
 {{-- ============================================================ --}}
 <script>
-/* ---------- Service multi-select ---------- */
-(function () {
-    const trigger = document.getElementById('serviceTrigger');
-    const panel   = document.getElementById('servicePanel');
-    const label   = document.getElementById('serviceTriggerLabel');
-    const badge   = document.getElementById('serviceCountBadge');
+    /* ---------- Service multi-select ---------- */
+    (function() {
+        const trigger = document.getElementById('serviceTrigger');
+        const panel = document.getElementById('servicePanel');
+        const label = document.getElementById('serviceTriggerLabel');
+        const badge = document.getElementById('serviceCountBadge');
 
-    if (!trigger || !panel) return;
+        if (!trigger || !panel) return;
 
-    function refresh() {
-        const checked = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'));
-        const count   = checked.length;
-        const labels  = checked.map(input => input.nextElementSibling.textContent.trim());
+        function refresh() {
+            const checked = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'));
+            const count = checked.length;
+            const labels = checked.map(input => input.nextElementSibling.textContent.trim());
 
-        label.textContent = count
-            ? labels.join(', ')
-            : '-- Select Service(s) --';
+            label.textContent = count ?
+                labels.join(', ') :
+                '-- Select Service(s) --';
 
-        if (badge) badge.textContent = count + ' selected';
-    }
+            if (badge) badge.textContent = count + ' selected';
+        }
 
-    trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        panel.classList.toggle('is-open');
-    });
-
-    panel.addEventListener('change', refresh);
-
-    function updateNarrativeFields() {
-        const selectedTypes = new Set(Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(input => input.dataset.reportType)
-            .filter(Boolean));
-
-        document.querySelectorAll('[data-report-types]').forEach(section => {
-            const types = section.dataset.reportTypes.split(/\s+/);
-            section.hidden = !types.some(type => selectedTypes.has(type));
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.classList.toggle('is-open');
         });
-    }
 
-    panel.addEventListener('change', updateNarrativeFields);
+        panel.addEventListener('change', refresh);
 
-    document.addEventListener('click', (e) => {
-        if (!panel.contains(e.target) && e.target !== trigger) {
-            panel.classList.remove('is-open');
+        function updateNarrativeFields() {
+            const selectedTypes = new Set(Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(input => input.dataset.reportType)
+                .filter(Boolean));
+
+            document.querySelectorAll('[data-report-types]').forEach(section => {
+                const types = section.dataset.reportTypes.split(/\s+/);
+                section.hidden = !types.some(type => selectedTypes.has(type));
+            });
         }
-    });
 
-    refresh();
-    updateNarrativeFields();
-})();
+        panel.addEventListener('change', updateNarrativeFields);
 
-/* ---------- from_date / to_date sync ---------- */
-(function () {
-    const fromDate = document.getElementById('from_date');
-    const toDate   = document.getElementById('to_date');
+        document.addEventListener('click', (e) => {
+            if (!panel.contains(e.target) && e.target !== trigger) {
+                panel.classList.remove('is-open');
+            }
+        });
 
-    if (!fromDate || !toDate) return;
+        refresh();
+        updateNarrativeFields();
+    })();
 
-    function syncToDateMin() {
-        const fromValue = fromDate.value;
-        if (!fromValue) {
-            toDate.removeAttribute('min');
-            return;
+    /* ---------- from_date / to_date sync ---------- */
+    (function() {
+        const fromDate = document.getElementById('from_date');
+        const toDate = document.getElementById('to_date');
+
+        if (!fromDate || !toDate) return;
+
+        function syncToDateMin() {
+            const fromValue = fromDate.value;
+            if (!fromValue) {
+                toDate.removeAttribute('min');
+                return;
+            }
+            toDate.min = fromValue;
+            if (toDate.value && toDate.value < fromValue) {
+                toDate.value = '';
+            }
         }
-        toDate.min = fromValue;
-        if (toDate.value && toDate.value < fromValue) {
-            toDate.value = '';
-        }
-    }
 
-    fromDate.addEventListener('change', syncToDateMin);
-    fromDate.addEventListener('input', syncToDateMin);
-    syncToDateMin();
-})();
+        fromDate.addEventListener('change', syncToDateMin);
+        fromDate.addEventListener('input', syncToDateMin);
+        syncToDateMin();
+    })();
 </script>
 
 @include('admin.partials.footer')

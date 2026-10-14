@@ -1,6 +1,6 @@
 @include('admin.partials.header', [
     'pageTitle' => $client->name . ' — Services',
-    'active' => 'daily-metrics-reports',
+    'active' => 'metrics-reports',
     'bodyClass' => 'admin-page report-page',
     'includeDataTables' => true,
     'viteAssets' => ['resources/css/app.css', 'resources/css/datatable.css', 'resources/js/app.js'],
@@ -14,7 +14,7 @@
     <section class="page-heading report-page-heading">
         <div>
             <div class="eyebrow">
-                <a href="{{ route('daily-metrics-reports.index') }}">← All clients</a>
+                <a href="{{ route('metrics-reports.index') }}">← All clients</a>
             </div>
             <h1>{{ $client->name }}</h1>
             <p class="page-subtitle">
@@ -46,7 +46,7 @@
                         <th style="width:60px;">S.No</th>
                         <th>Client Name</th>
                         <th>Title</th>
-                        <th style="width:230px;" class="report-actions-heading">Metrics</th>
+                        <th style="width:230px; text-align: center;" class="report-actions-heading">Metrics</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,7 +77,7 @@
 
                             {{-- Previous Metrics → dedicated page --}}
                             <td class="report-actions-cell">
-                                <a href="{{ route('daily-metrics-reports.previous-metrics', $assignService->id) }}"
+                                <a href="{{ route('metrics-reports.previous-metrics', $assignService->id) }}"
                                    class="button button-secondary btn-previous-metrics"
                                    title="View all previous metrics">
                                     <span>Metrics</span>

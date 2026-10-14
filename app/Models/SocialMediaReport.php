@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SocialMediaReport extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'assign_service_ids',
+        'assign_service_id',
 
         'total_conversations',
         'total_enquiries',
@@ -40,7 +40,7 @@ class SocialMediaReport extends Model
     ];
 
     protected $casts = [
-        'assign_service_ids'     => 'array',
+        'assign_service_id'      => 'integer',
 
         'campaign_results'       => 'array',
         'creative_performance'   => 'array',
@@ -51,43 +51,22 @@ class SocialMediaReport extends Model
 
     public function scopeForAssignService(Builder $query, int $assignServiceId): Builder
     {
-        return $query->where(function (Builder $query) use ($assignServiceId) {
-            $query->whereJsonContains('assign_service_ids', $assignServiceId)
-                ->orWhereJsonContains('assign_service_ids', (string) $assignServiceId);
-        });
+        return $query->where('assign_service_id', $assignServiceId);
     }
 
-    /**
-     * Assign services attached to this report.
-     */
-    public function getAssignServicesAttribute(): Collection
+    public function assignService(): BelongsTo
     {
-        $ids = is_array($this->assign_service_ids)
-            ? array_filter($this->assign_service_ids)
-            : [];
-
-        if (empty($ids)) {
-            return collect();
-        }
-
-        return AssignService::whereIn('id', $ids)->get();
+        return $this->belongsTo(AssignService::class);
     }
 
     public function getServiceNamesAttribute(): string
     {
-        return $this->assign_services
-            ->map(fn ($a) => $a->service_names)
-            ->filter()
-            ->implode(', ');
+        return $this->assignService?->service_names ?? '';
     }
 
     public function getClientNamesAttribute(): string
     {
-        return $this->assign_services
-            ->map(fn ($a) => $a->client?->name)
-            ->filter()
-            ->unique()
-            ->implode(', ');
+        return $this->assignService?->client?->name ?? '';
     }
 
     public function getReportTypeLabelAttribute(): string

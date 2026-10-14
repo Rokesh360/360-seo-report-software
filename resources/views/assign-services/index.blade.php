@@ -62,6 +62,7 @@
                         <th>CLIENT</th>
                         <th>SERVICE</th>
                         <th>TITLE</th>
+                        <th>BUDGET</th>
                         <th>PERIOD</th>
                         <th>STATUS</th>
                         <th class="report-actions-heading" style="text-align:center;">ACTIONS</th>
@@ -86,6 +87,9 @@
                         </td>
                         <td>
                             <span class="report-website">{{ $assignService->title }}</span>
+                        </td>
+                        <td>
+                            <span class="report-preparer">{{ $assignService->budget }}</span>
                         </td>
                         <td>
                             <span class="report-preparer">

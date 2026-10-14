@@ -14,6 +14,25 @@ use Illuminate\Http\Request;
 
 class SocialMediaReportController extends Controller
 {
+    private function parseAmount(mixed $value): float
+    {
+        // "₹5,000.50" → 5000.50
+        return (float) preg_replace('/[^0-9.]/', '', (string) $value);
+    }
+
+    private function spendSummary(SocialMediaReport $report): array
+    {
+        $budget = (float) ($report->assignService?->budget ?? 0);
+
+        $spent = collect($report->campaign_results ?? [])
+            ->sum(fn($row) => $this->parseAmount($row['spend'] ?? 0));
+
+        return [
+            'budget'    => $budget,
+            'spent'     => $spent,
+            'available' => $budget - $spent,
+        ];
+    }
 
     private function reportTypesFor($reports, array $assignServices): array
     {
@@ -27,13 +46,9 @@ class SocialMediaReportController extends Controller
         $result = [];
 
         foreach ($reports as $report) {
-            $types = collect((array) $report->assign_service_ids)
-                ->map(fn($id) => $assignServices[(int) $id] ?? null)
-                ->filter()
-                ->flatMap(function ($as) {
-                    $ids = $as->service_id;
-                    return is_array($ids) ? $ids : array_filter([(int) $ids]);
-                })
+            $assignment = $assignServices[(int) $report->assign_service_id] ?? null;
+            $serviceIds = $assignment?->service_id;
+            $types = collect(is_array($serviceIds) ? $serviceIds : array_filter([(int) $serviceIds]))
                 ->map(fn($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
                 ->filter()
                 ->unique()
@@ -66,19 +81,10 @@ class SocialMediaReportController extends Controller
             ->latest('from_date')
             ->get()
             ->each(function (AssignService $a) {
-                $from = $a->from_date->copy()->startOfDay();
-                $to   = $a->to_date->copy()->endOfDay();
-
-                // number of table rows = number of dates in the range
-                $a->days_total = (int) $from->diffInDays($to->copy()->startOfDay()) + 1;
-
-                // dates that already have a report (by created_at)
-                $a->days_filled = SocialMediaReport::forAssignService($a->id)
-                    ->whereBetween('created_at', [$from, $to])
-                    ->pluck('created_at')
-                    ->map(fn($d) => $d->toDateString())
-                    ->unique()
-                    ->count();
+                // Monthly: one entry per service
+                $a->has_report  = SocialMediaReport::forAssignService($a->id)->exists();
+                $a->days_total  = 1;                       // kept so the existing view doesn't break
+                $a->days_filled = $a->has_report ? 1 : 0;
             });
 
         return view('social_media_reports.client_services', compact('client', 'assignServices'));
@@ -109,23 +115,16 @@ class SocialMediaReportController extends Controller
     {
         $assignService->load('client');
 
-        $from = $assignService->from_date->copy()->startOfDay();
-        $to   = $assignService->to_date->copy()->startOfDay();
+        $report = SocialMediaReport::forAssignService($assignService->id)
+            ->latest('id')
+            ->first();
 
-        $byDate = SocialMediaReport::forAssignService($assignService->id)
-            ->whereBetween('created_at', [$from, $to->copy()->endOfDay()])
-            ->orderBy('created_at')
-            ->get()
-            ->groupBy(fn($r) => $r->created_at->toDateString());
-
-        $rows = collect();
-        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
-            $rows->push([
-                'date'   => $d->copy(),
-                'report' => $byDate->get($d->toDateString())?->first(),
-                'future' => $d->gt(Carbon::today()),
-            ]);
-        }
+        // Monthly: always exactly one row (Add if no report, Edit + Delete if there is one)
+        $rows = collect([[
+            'date'   => $report?->created_at,
+            'report' => $report,
+            'future' => false,
+        ]]);
 
         return view('social_media_reports.previous_metrics', [
             'assignService' => $assignService,
@@ -140,20 +139,15 @@ class SocialMediaReportController extends Controller
     {
         $assignService->load('client');
 
-        $previousReports = SocialMediaReport::forAssignService($assignService->id)
-            ->whereDate('created_at', '<', Carbon::today())
-            ->orderByDesc('created_at')
-            ->get();
+        $report = SocialMediaReport::forAssignService($assignService->id)
+            ->latest('id')
+            ->first();
 
-        $todayReports = SocialMediaReport::forAssignService($assignService->id)
-            ->whereDate('created_at', Carbon::today())
-            ->orderByDesc('id')
-            ->get();
-
-        $todayEntryMissing = $todayReports->isEmpty();
-
-        $canAddToday = ($assignService->status ?? true)
-            && Carbon::today()->betweenIncluded($assignService->from_date, $assignService->to_date);
+        // Variable names kept for the existing service_metrics view
+        $previousReports   = collect();
+        $todayReports      = $report ? collect([$report]) : collect();
+        $todayEntryMissing = ! $report;
+        $canAddToday       = ! $report && ($assignService->status ?? true);
 
         return view('social_media_reports.service_metrics', compact(
             'assignService',
@@ -169,9 +163,19 @@ class SocialMediaReportController extends Controller
      ============================================================ */
     public function create(Request $request)
     {
-        $assignServices = AssignService::orderBy('id')->get();
-
         $prefillId = $request->integer('assign_service_id') ?: null;
+
+        // Already has its monthly entry → send to edit instead
+        if ($prefillId) {
+            $existing = SocialMediaReport::forAssignService($prefillId)->latest('id')->first();
+            if ($existing) {
+                return redirect()
+                    ->route('metrics-reports.edit', $existing->id)
+                    ->with('error', 'The monthly report already exists. You can edit it here.');
+            }
+        }
+
+        $assignServices = AssignService::orderBy('id')->get();
 
         return view('social_media_reports.create', compact('assignServices', 'prefillId'));
     }
@@ -179,44 +183,42 @@ class SocialMediaReportController extends Controller
     public function store(SocialMediaReportRequest $request)
     {
         $report = new SocialMediaReport($request->validated());
-
-        // date comes from ?date=, keep current time for same-day ordering
-        $report->created_at = $request->reportDate()->setTimeFrom(now());
         $report->save();
 
         return redirect()
-            ->route('daily-metrics-reports.index')
-            ->with('success', 'Report created successfully.');
+            ->route('metrics-reports.index')
+            ->with('success', 'Monthly report created successfully.')
+            ->with('spend_summary', $this->spendSummary($report));
     }
 
     /* ============================================================
      |  edit / update / destroy
      ============================================================ */
-    public function edit(SocialMediaReport $dailyMetricsReport)
+    public function edit(SocialMediaReport $metricsReport)
     {
         $assignServices = AssignService::orderBy('id')->get();
 
         return view('social_media_reports.edit', [
-            'report'         => $dailyMetricsReport,
+            'report'         => $metricsReport,
             'assignServices' => $assignServices,
         ]);
     }
 
-    public function update(SocialMediaReportRequest $request, SocialMediaReport $dailyMetricsReport)
+    public function update(SocialMediaReportRequest $request, SocialMediaReport $metricsReport)
     {
-        $dailyMetricsReport->update($request->validated());
+        $metricsReport->update($request->validated());
 
         return redirect()
-            ->route('daily-metrics-reports.index')
+            ->route('metrics-reports.index')
             ->with('success', 'Report updated successfully.');
     }
 
-    public function destroy(SocialMediaReport $dailyMetricsReport)
+    public function destroy(SocialMediaReport $metricsReport)
     {
-        $dailyMetricsReport->delete();
+        $metricsReport->delete();
 
         return redirect()
-            ->route('daily-metrics-reports.index')
+            ->route('metrics-reports.index')
             ->with('success', 'Report moved to trash.');
     }
 
@@ -268,7 +270,7 @@ class SocialMediaReportController extends Controller
             ->setPaper('a4', 'portrait')
             ->setOption(['isHtml5ParserEnabled' => true]);
 
-        return $pdf->download('daily-metrics-reports-all-' . now()->format('Ymd-His') . '.pdf');
+        return $pdf->download('metrics-reports-all-' . now()->format('Ymd-His') . '.pdf');
     }
 
     /**
@@ -277,11 +279,7 @@ class SocialMediaReportController extends Controller
     private function assignServicesFor($reports): array
     {
         $ids = $reports
-            ->flatMap(function (SocialMediaReport $report) {
-                $ids = $report->assign_service_ids;
-
-                return is_array($ids) ? $ids : [];
-            })
+            ->pluck('assign_service_id')
             ->filter(fn($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
             ->map(fn($id) => (int) $id)
             ->unique()
@@ -299,7 +297,7 @@ class SocialMediaReportController extends Controller
     }
 
     /* ============================================================
-     |  JSON list for assign-services multi-select
+     |  JSON list of assign services
      ============================================================ */
     public function assignServicesList()
     {
@@ -325,15 +323,13 @@ class SocialMediaReportController extends Controller
         $from = $assignService->from_date->copy()->startOfDay();
         $to   = $assignService->to_date->copy()->endOfDay();
 
-        // Only filled reports inside the assignment's date range
         $reports = SocialMediaReport::forAssignService($assignService->id)
-            ->whereBetween('created_at', [$from, $to])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
 
         if ($reports->isEmpty()) {
-            return back()->with('error', 'No filled reports found within this date range.');
+            return back()->with('error', 'No report found for this service.');
         }
 
         $assignServices = $this->assignServicesFor($reports);

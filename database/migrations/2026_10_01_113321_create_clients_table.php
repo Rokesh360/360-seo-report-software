@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('website');
             $table->string('email')->nullable();
+            $table->date('date_of_campaign')->nullable();
             $table->string('phone', 30)->nullable();
             $table->boolean('status')->default(true);   // 1 = active, 0 = inactive
             $table->timestamps();
