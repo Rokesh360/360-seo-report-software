@@ -38,11 +38,11 @@
 
     </section>
 
-    @if(session('success'))
+    <!-- @if(session('success'))
     <div class="report-flash" role="status">
         {{ session('success') }}
     </div>
-    @endif
+    @endif -->
 
     @if($selectedClientId)
     <div class="report-table-meta">

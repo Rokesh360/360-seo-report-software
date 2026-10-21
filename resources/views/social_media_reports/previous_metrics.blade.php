@@ -72,14 +72,12 @@ $budget = (int) ($assignService->budget ?? 0);
                     '',
                     (string) ($r['spend'] ?? 0)
                     ));
-
                     $available = $budget - $spent;
                     }
                     $typeLabel = '';
 
                     if ($report) {
                     $hasWa = $hasLg = $hasEn = false;
-
                     if ($report->assignService) {
                     foreach ($report->assignService->getServices()->pluck('name') as $name) {
                     if ($name === 'WhatsApp Meta Ads Monthly Report') $hasWa = true;

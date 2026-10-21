@@ -254,6 +254,7 @@
         $showTopPosts         = $showEngagement;
 
         $reportAssignService = ($assignServices ?? [])[(int) $report->assign_service_id] ?? null;
+        $reportAssignServices = $reportAssignService ? [$reportAssignService] : [];
         $clientName = $reportAssignService?->client?->name ?: ($report->client_names ?: '—');
 
         // Section numbering for "all"

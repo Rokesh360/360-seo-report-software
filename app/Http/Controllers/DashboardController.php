@@ -11,39 +11,52 @@ use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
+
     public function index(Request $request)
     {
-        $month    = $this->resolveMonth($request->query('month'));
-        $start    = $month->copy()->startOfMonth();
-        $end      = $month->copy()->endOfMonth();
+        $month     = $this->resolveMonth($request->query('month'));
+        $start     = $month->copy()->startOfMonth();
+        $end       = $month->copy()->endOfMonth();
         $prevStart = $start->copy()->subMonthNoOverflow()->startOfMonth();
         $prevEnd   = $prevStart->copy()->endOfMonth();
-        $clientId  = $request->integer('client_id') ?: null;
+
+        // No "All clients" option: fall back to the first client when none/unknown is chosen.
+        $clients  = Client::orderBy('name')->get(['id', 'name']);
+        $clientId = $request->integer('client_id') ?: null;
+
+        if (! $clientId || ! $clients->contains('id', $clientId)) {
+            $clientId = $clients->first()?->id;
+        }
 
         $assignServices = AssignService::with('client:id,name')->get();
         $assignById     = $assignServices->keyBy('id');
 
         // null = all clients, array = only these assign services
         $scopedIds = $clientId
-            ? $assignServices->where('client_id', $clientId)->pluck('id')->map(fn ($i) => (int) $i)->all()
+            ? $assignServices->where('client_id', $clientId)->pluck('id')->map(fn($i) => (int) $i)->all()
             : null;
 
         $current  = $this->reportsBetween($start, $end, $scopedIds);
         $previous = $this->reportsBetween($prevStart, $prevEnd, $scopedIds);
 
-        $days   = $start->daysInMonth;
-        $daily  = $this->dailySeries($current, $days);
-        $nowT   = $this->totals($current);
-        $prevT  = $this->totals($previous);
+        // Low available budget keeps covering every client, regardless of the selected one.
+        $monthReports = $this->reportsBetween($start, $end, $scopedIds);
+
+        $days  = $start->daysInMonth;
+        $daily = $this->dailySeries($current, $days);
+        $nowT  = $this->totals($current);
+        $prevT = $this->totals($previous);
 
         /* ---------------- Metric cards ---------------- */
         $cards = [];
-        foreach ([
-            'reach'       => ['Reach',              'green', 0],
-            'impressions' => ['Impressions',        'blue',  1],
-            'clicks'      => ['Clicks',             'amber', 2],
-            'leads'       => ['Leads & enquiries',  'coral', 3],
-        ] as $key => [$label, $color, $icon]) {
+        foreach (
+            [
+                'reach'       => ['Reach',             'green', 0],
+                'impressions' => ['Impressions',       'blue',  1],
+                'clicks'      => ['Clicks',            'amber', 2],
+                'leads'       => ['Leads & enquiries', 'coral', 3],
+            ] as $key => [$label, $color, $icon]
+        ) {
             $cards[] = [
                 'label'  => $label,
                 'color'  => $color,
@@ -67,23 +80,25 @@ class DashboardController extends Controller
             'Saves'     => [(int) $current->sum('saves'),     '#e0715a'],
         ]);
 
-        /* ---------------- Client performance table ---------------- */
-        $clientRows = $this->clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
+        /* ---------------- Tables ---------------- */
+        $clientRows    = $this->clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
+        $lowBudgetRows = $this->lowBudgetRows($monthReports, $assignById); // use $current to follow the selected client
 
         return view('admin.dashboard', [
-            'month'        => $month,
-            'start'        => $start,
-            'end'          => $end,
-            'periodLabel'  => $month->format('F Y'),
-            'greeting'     => now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening'),
-            'cards'        => $cards,
-            'chart'        => $chart,
-            'donut'        => $donut,
-            'clientRows'   => $clientRows,
-            'reportCount'  => $current->count(),
-            'monthOptions' => collect(range(0, 11))->map(fn ($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
-            'clients'      => Client::orderBy('name')->get(['id', 'name']),
-            'clientId'     => $clientId,
+            'month'              => $month,
+            'start'              => $start,
+            'end'                => $end,
+            'periodLabel'        => $month->format('F Y'),
+            'greeting'           => now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening'),
+            'cards'              => $cards,
+            'chart'              => $chart,
+            'donut'              => $donut,
+            'clientRows'         => $clientRows,
+            'lowBudgetRows'      => $lowBudgetRows,
+            'reportCount'        => $current->count(),
+            'monthOptions'       => collect(range(0, 11))->map(fn($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
+            'clients'            => $clients,
+            'clientId'           => $clientId,
         ]);
     }
 
@@ -102,13 +117,65 @@ class DashboardController extends Controller
     {
         return SocialMediaReport::query()
             ->whereBetween('created_at', [$from->toDateString(), $to->toDateString()])
-            ->when($scopedIds !== null, fn ($query) => $query->whereIn('assign_service_id', $scopedIds))
+            ->when($scopedIds !== null, fn($query) => $query->whereIn('assign_service_id', $scopedIds))
             ->get([
-                'id', 'assign_service_id', 'created_at',
-                'reach', 'impressions', 'whatsapp_clicks', 'link_clicks',
-                'total_leads', 'total_enquiries',
-                'reactions', 'comments', 'shares', 'saves',
+                'id',
+                'assign_service_id',
+                'created_at',
+                'reach',
+                'impressions',
+                'whatsapp_clicks',
+                'link_clicks',
+                'total_leads',
+                'total_enquiries',
+                'reactions',
+                'comments',
+                'shares',
+                'saves',
+                'campaign_results',
             ]);
+    }
+
+    private function lowBudgetRows(Collection $reports, Collection $assignById): Collection
+    {
+        return $reports
+            ->map(function (SocialMediaReport $report) use ($assignById) {
+                $assignment = $assignById->get((int) $report->assign_service_id);
+
+                if (! $assignment) {
+                    return null;
+                }
+
+                $budget = (float) $assignment->budget;
+
+                $spent = collect($report->campaign_results ?? [])
+                    ->sum(fn($row) => (float) preg_replace(
+                        '/[^0-9.]/',
+                        '',
+                        (string) ($row['spend'] ?? 0)
+                    ));
+
+                $available = $budget - $spent;
+
+                // Exclude fully spent or over-budget services.
+                if ($available <= 0) {
+                    return null;
+                }
+
+                return [
+                    'client'    => $assignment->client?->name ?? 'Unknown client',
+                    'service'   => $assignment->title ?: 'Service #' . $assignment->id,
+                    'from_date' => $assignment->from_date,
+                    'to_date'   => $assignment->to_date,
+                    'date'      => $report->created_at,
+                    'budget'    => $budget,
+                    'spent'     => $spent,
+                    'available' => $available,
+                ];
+            })
+            ->filter()
+            ->sortBy('available')
+            ->values();
     }
 
     private function totals(Collection $r): array
@@ -155,13 +222,16 @@ class DashboardController extends Controller
 
         $max = max($buckets);
 
-        return array_map(fn ($v) => $max > 0 ? max(8, (int) round($v / $max * 100)) : 8, $buckets);
+        return array_map(fn($v) => $max > 0 ? max(8, (int) round($v / $max * 100)) : 8, $buckets);
     }
 
     private function buildChart(array $clicks, array $impressions, Carbon $start): array
     {
         $days = count($clicks);
-        $w = 760; $top = 18; $bottom = 180; $h = $bottom - $top;
+        $w = 760;
+        $top = 18;
+        $bottom = 180;
+        $h = $bottom - $top;
 
         $impStep = $this->niceStep(max($impressions) / 3);
         $impMax  = $impStep * 3;
@@ -178,7 +248,7 @@ class DashboardController extends Controller
         $peakDay    = array_search(max($clicks), $clicks, true);
 
         $xLabels = collect([1, 6, 11, 16, 21, 26, $days])->unique()
-            ->map(fn ($d) => $start->copy()->day($d)->format('M d'))->all();
+            ->map(fn($d) => $start->copy()->day($d)->format('M d'))->all();
 
         return [
             'hasData'         => array_sum($clicks) + array_sum($impressions) > 0,
@@ -208,8 +278,15 @@ class DashboardController extends Controller
         $d = sprintf('M%.1F %.1F', $pts[0][0], $pts[0][1]);
         for ($i = 1; $i < count($pts); $i++) {
             $cx = ($pts[$i - 1][0] + $pts[$i][0]) / 2;
-            $d .= sprintf(' C%.1F %.1F %.1F %.1F %.1F %.1F',
-                $cx, $pts[$i - 1][1], $cx, $pts[$i][1], $pts[$i][0], $pts[$i][1]);
+            $d .= sprintf(
+                ' C%.1F %.1F %.1F %.1F %.1F %.1F',
+                $cx,
+                $pts[$i - 1][1],
+                $cx,
+                $pts[$i][1],
+                $pts[$i][0],
+                $pts[$i][1]
+            );
         }
 
         return $d;
@@ -258,16 +335,17 @@ class DashboardController extends Controller
         }
 
         foreach ($reports as $r) {
-            $clientId = $assignById[(int) $r->assign_service_id]->client_id ?? null;
-            $cids = collect([$clientId])->filter();
+            $cid = $assignById[(int) $r->assign_service_id]->client_id ?? null;
 
-            foreach ($cids as $cid) {
-                $rows[$cid] ??= $this->blankRow($assignById->firstWhere('client_id', $cid)?->client?->name);
-                $rows[$cid]['reports']++;
-                $rows[$cid]['reach']  += (int) $r->reach;
-                $rows[$cid]['clicks'] += (int) $r->whatsapp_clicks + (int) $r->link_clicks;
-                $rows[$cid]['last']    = max($rows[$cid]['last'], $r->created_at->toDateString());
+            if (! $cid) {
+                continue;
             }
+
+            $rows[$cid] ??= $this->blankRow($assignById->firstWhere('client_id', $cid)?->client?->name);
+            $rows[$cid]['reports']++;
+            $rows[$cid]['reach']  += (int) $r->reach;
+            $rows[$cid]['clicks'] += (int) $r->whatsapp_clicks + (int) $r->link_clicks;
+            $rows[$cid]['last']    = max($rows[$cid]['last'], $r->created_at->toDateString());
         }
 
         $max = max(array_merge([0], array_column($rows, 'reach')));

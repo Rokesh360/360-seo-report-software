@@ -55,7 +55,7 @@ input {
     min-height: 100vh;
     background: var(--brand-navy);
 }
- 
+
 .auth-shell {
     position: relative;
     min-height: 100vh;
@@ -64,7 +64,7 @@ input {
     overflow: hidden;
     background: var(--brand-navy);
 }
- 
+
 /* ---------- Brand bits ---------- */
 .brand {
     position: relative;
@@ -79,11 +79,11 @@ input {
     font-size: 18px;
     text-decoration: none;
 }
- 
+
 .brand-light {
     color: #fff;
 }
- 
+
 .brand-mark {
     display: grid;
     width: 34px;
@@ -95,11 +95,11 @@ input {
     font: 700 11px var(--font-display);
     letter-spacing: 0;
 }
- 
+
 .brand-muted {
     color: #8fa59a;
 }
- 
+
 .eyebrow {
     display: flex;
     align-items: center;
@@ -108,11 +108,11 @@ input {
     font: 700 12px var(--font-ui);
     letter-spacing: 0;
 }
- 
+
 .eyebrow-light {
     color: #c5d7cc;
 }
- 
+
 .status-dot {
     display: inline-block;
     width: 7px;
@@ -120,7 +120,7 @@ input {
     border-radius: 50%;
     background: #d8ed88;
 }
- 
+
 /* ---------- Left: image / story side ---------- */
 .auth-story {
     position: relative;
@@ -129,18 +129,19 @@ input {
     justify-content: space-between;
     overflow: hidden;
     min-height: 100vh;
-    padding: 44px calc(7.5% + 130px) 44px 7.5%; /* keeps text clear of the curve */
+    padding: 44px calc(7.5% + 130px) 44px 7.5%;
+    /* keeps text clear of the curve */
     color: #fff;
     background: url('../../public/assets/360degreeinfo.png') no-repeat center center / cover;
 }
- 
+
 .auth-story::before,
 .auth-story::after {
     position: absolute;
     content: '';
     pointer-events: none;
 }
- 
+
 /* navy overlay so the headline is readable over the photo */
 .auth-story::before {
     inset: 0;
@@ -148,7 +149,7 @@ input {
         linear-gradient(115deg, rgba(11, 35, 80, .92) 0%, rgba(11, 35, 80, .72) 45%, rgba(27, 75, 155, .38) 100%),
         radial-gradient(circle at 12% 0%, rgba(247, 146, 30, .28), transparent 45%);
 }
- 
+
 /* subtle dotted texture */
 .auth-story::after {
     inset: 0;
@@ -157,13 +158,13 @@ input {
     background-size: 18px 18px;
     mask-image: linear-gradient(135deg, #000, transparent 66%);
 }
- 
+
 .auth-story .brand img {
     display: block;
     width: auto;
     height: 56px;
 }
- 
+
 .story-copy {
     position: relative;
     z-index: 1;
@@ -171,14 +172,14 @@ input {
     margin: auto 0;
     padding: 76px 0;
 }
- 
+
 .story-copy h1 {
     margin: 28px 0 18px;
     font: 600 60px/1.04 var(--font-display);
     letter-spacing: 0;
     text-shadow: 0 4px 24px rgba(11, 35, 80, .35);
 }
- 
+
 .story-copy p {
     max-width: 340px;
     margin: 0;
@@ -186,7 +187,7 @@ input {
     font-size: 15px;
     line-height: 1.75;
 }
- 
+
 .story-foot,
 .auth-footer {
     position: relative;
@@ -196,17 +197,17 @@ input {
     gap: 14px;
     font-size: 12px;
 }
- 
+
 .story-foot {
     color: #c1d2c8;
 }
- 
+
 .story-foot span:last-child {
     color: #91ac9c;
     font-size: 12px;
     letter-spacing: 0;
 }
- 
+
 /* ---------- Right: curved form panel ---------- */
 .auth-form-side {
     position: relative;
@@ -216,11 +217,12 @@ input {
     flex-direction: column;
     justify-content: center;
     min-height: 100vh;
-    margin-left: -120px; /* overlaps the image so the curve cuts into it */
+    margin-left: -120px;
+    /* overlaps the image so the curve cuts into it */
     padding: 50px clamp(28px, 6vw, 110px) 50px calc(120px + clamp(28px, 4vw, 70px));
     background: transparent;
 }
- 
+
 .auth-form-side::before,
 .auth-form-side::after {
     content: '';
@@ -230,14 +232,14 @@ input {
     right: 0;
     bottom: 0;
 }
- 
+
 /* brand-coloured crescent behind the white panel */
 .auth-form-side::before {
     left: -18px;
     background: var(--brand-grad);
     border-radius: 138px 0 0 138px / 50% 0 0 50%;
 }
- 
+
 /* the white curved panel */
 .auth-form-side::after {
     left: 0;
@@ -247,18 +249,18 @@ input {
         #fff;
     border-radius: 120px 0 0 120px / 50% 0 0 50%;
 }
- 
+
 .auth-form-wrap {
     width: 100%;
     max-width: 400px;
     margin: auto;
 }
- 
+
 .auth-mobile-brand {
     display: none;
     margin-bottom: 52px;
 }
- 
+
 .auth-form-wrap .eyebrow {
     display: inline-flex;
     padding: 6px 12px;
@@ -266,26 +268,26 @@ input {
     color: #b86a00;
     background: var(--surface-warm);
 }
- 
+
 .auth-form-wrap h2 {
     margin: 17px 0 8px;
     color: var(--brand-navy);
     font: 600 36px/1.15 var(--font-display);
     letter-spacing: 0;
 }
- 
+
 .auth-intro {
     margin: 0 0 34px;
     color: var(--muted);
     font-size: 14px;
 }
- 
+
 /* ---------- Form ---------- */
 .login-form {
     display: flex;
     flex-direction: column;
 }
- 
+
 .login-form>label,
 .field-heading label {
     margin-bottom: 9px;
@@ -293,13 +295,13 @@ input {
     font-size: 14px;
     font-weight: 600;
 }
- 
+
 .field-heading {
     display: flex;
     justify-content: space-between;
     margin-top: 22px;
 }
- 
+
 .login-form input[type=email],
 .login-form input[type=password],
 .login-form input[type=text] {
@@ -314,33 +316,34 @@ input {
     font-size: 13px;
     transition: border-color .18s, box-shadow .18s, background .18s;
 }
- 
+
 .login-form input::placeholder {
     color: #a7b0aa;
 }
- 
+
 .login-form input:focus {
     border-color: var(--brand-orange);
     background: #fff;
     box-shadow: 0 0 0 3px rgb(247 146 30 / 18%);
 }
- 
+
 /* ---------- Password field with show/hide toggle ---------- */
 .password-field {
     position: relative;
     width: 100%;
 }
- 
+
 .login-form .password-field input {
-    padding-right: 46px; /* room for the eye icon */
+    padding-right: 46px;
+    /* room for the eye icon */
 }
- 
+
 /* hide the browser's built-in reveal icon (Edge/IE) so there aren't two eyes */
 .login-form input[type=password]::-ms-reveal,
 .login-form input[type=password]::-ms-clear {
     display: none;
 }
- 
+
 .password-toggle {
     position: absolute;
     top: 50%;
@@ -358,23 +361,23 @@ input {
     cursor: pointer;
     transition: color .18s, background .18s;
 }
- 
+
 .password-toggle:hover {
     color: var(--brand-navy);
     background: var(--surface-tint);
 }
- 
+
 .password-toggle:focus-visible {
     outline: 2px solid var(--brand-orange);
     outline-offset: 1px;
 }
- 
+
 .password-toggle svg {
     display: block;
     width: 20px;
     height: 20px;
 }
- 
+
 /* ---------- Remember me (currently commented out in Blade) ---------- */
 .remember-option {
     display: flex;
@@ -385,14 +388,14 @@ input {
     font-size: 14px;
     cursor: pointer;
 }
- 
+
 .remember-option input {
     width: 15px;
     height: 15px;
     margin: 0;
     accent-color: var(--brand-orange);
 }
- 
+
 /* ---------- Buttons ---------- */
 .button {
     display: inline-flex;
@@ -409,28 +412,28 @@ input {
     cursor: pointer;
     transition: background .18s, transform .18s, filter .18s, color .18s;
 }
- 
+
 .button-primary {
     color: var(--brand-navy);
     background: var(--brand-grad);
     box-shadow: 0 8px 18px rgba(247, 146, 30, .3);
 }
- 
+
 .button-primary:hover {
     color: var(--brand-navy);
     background: var(--brand-grad);
     filter: brightness(1.06);
     transform: translateY(-1px);
 }
- 
+
 .login-submit {
     width: 100%;
 }
- 
+
 .login-submit span:last-child {
     font-size: 18px;
 }
- 
+
 /* ---------- Alerts / notes / footer ---------- */
 .form-alert {
     margin: -14px 0 22px;
@@ -441,28 +444,28 @@ input {
     background: #fff7f4;
     font-size: 13px;
 }
- 
+
 .auth-note {
     margin: 24px 0 0;
     color: #87918a;
     text-align: center;
     font-size: 13px;
 }
- 
+
 .auth-footer {
     width: 100%;
     max-width: 400px;
     margin: 0 auto;
     color: #9aa29c;
 }
- 
+
 /* ---------- Tablet / mobile ---------- */
 @media (max-width: 900px) {
     .auth-shell {
         display: block;
         background: linear-gradient(135deg, #0b2350 0%, #1b4b9b 100%);
     }
- 
+
     /* logo on the navy header */
     .auth-shell::before {
         content: '';
@@ -473,39 +476,39 @@ input {
         height: 52px;
         /* background: url('../../public/assets/360degreeinfo.png') no-repeat left center / contain; */
     }
- 
+
     .auth-story,
     .auth-mobile-brand {
         display: none;
     }
- 
+
     /* white sheet with rounded top slides up over the navy header */
     .auth-form-side {
         min-height: calc(100svh - 110px);
         margin: 110px 0 0;
         padding: 40px 26px 24px;
     }
- 
+
     .auth-form-side::before {
         left: 0;
         top: -10px;
         border-radius: 50px 50px 0 0;
     }
- 
+
     .auth-form-side::after {
         left: 0;
         border-radius: 44px 44px 0 0;
     }
- 
+
     .auth-form-wrap {
         max-width: 420px;
     }
- 
+
     .auth-form-wrap h2 {
         font-size: 32px;
     }
 }
- 
+
 
 /* ============================================================
  |  ADMIN SHELL
@@ -3327,9 +3330,489 @@ select[multiple].form-select option:checked {
 }
 
 .required-star {
-    color: #d33;         
+    color: #d33;
     font-weight: 600;
     margin-left: 2px;
     font-size: 0.95em;
     line-height: 1;
+}
+
+.mc-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #e3e3e3;
+    margin-bottom: 16px;
+}
+
+.mc-tab {
+    background: none;
+    border: 0;
+    padding: 10px 14px;
+    cursor: pointer;
+    font: inherit;
+    border-bottom: 2px solid transparent;
+    opacity: .7;
+}
+
+.mc-tab.active {
+    border-bottom-color: #4c6ef5;
+    opacity: 1;
+    font-weight: 600;
+}
+
+.mc-pane {
+    display: none;
+}
+
+.mc-pane.active {
+    display: block;
+}
+
+.mc-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+}
+
+.mc-card {
+    border: 1px solid #e3e3e3;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.mc-card small {
+    display: block;
+    font-size: 12px;
+    opacity: .7;
+}
+
+.mc-card strong {
+    font-size: 22px;
+}
+
+.mc-banner {
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.mc-banner.warn {
+    background: #fff4e5;
+    border: 1px solid #ffd8a8;
+}
+
+.mc-banner.ok {
+    background: #ebfbee;
+    border: 1px solid #b2f2bb;
+}
+
+.mc-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+.mc-badge.ok {
+    background: #d3f9d8;
+    color: #2b8a3e;
+}
+
+.mc-badge.bad {
+    background: #ffe3e3;
+    color: #c92a2a;
+}
+
+.mc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mc-table th,
+.mc-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
+}
+
+.mc-table .r {
+    text-align: right;
+}
+
+.mc-bar {
+    background: #f0f0f0;
+    border-radius: 4px;
+    height: 8px;
+    min-width: 80px;
+}
+
+.mc-bar>span {
+    display: block;
+    height: 100%;
+    background: #4c6ef5;
+    border-radius: 4px;
+}
+
+.mc-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 180px;
+    overflow-x: auto;
+    padding-top: 10px;
+}
+
+.mc-col {
+    flex: 1 0 14px;
+    background: #4c6ef5;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+}
+
+.mc-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    opacity: .7;
+    margin-top: 6px;
+}
+
+.mx-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+
+.mx-toolbar form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.mx-toolbar label {
+    display: grid;
+    gap: 6px;
+    color: var(--brand-navy);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mx-toolbar select,
+.mx-toolbar input[type=date] {
+    height: 42px;
+    padding: 0 14px;
+    border: 1px solid #d6dff0;
+    border-radius: var(--radius-control);
+    background: #f7f9fd;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+}
+
+.mx-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 0;
+}
+
+.mx-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.mx-chip::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.mx-chip.ok {
+    color: #2b7a4b;
+    background: #e5f6ec;
+}
+
+.mx-chip.bad {
+    color: #b3392a;
+    background: #fdecea;
+}
+
+.mx-stack {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.mx-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.mx-canvas {
+    position: relative;
+    height: 280px;
+    margin-top: 14px;
+}
+
+.mx-donut-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.mx-donut {
+    position: relative;
+    height: 200px;
+}
+
+.mx-legend {
+    display: grid;
+    gap: 8px;
+}
+
+.mx-legend>div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    color: #46557a;
+}
+
+.mx-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.mx-legend i {
+    flex: 0 0 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.mx-legend b {
+    color: var(--brand-navy);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mx-empty {
+    margin: 14px 0 0;
+    padding: 26px 16px;
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    color: #8b97ae;
+    text-align: center;
+    font-size: 13px;
+}
+
+.mx-note {
+    margin: 6px 0 0;
+    color: #8b97ae;
+    font-size: 12px;
+}
+
+.mx-json {
+    margin: 8px 0 14px;
+    padding: 12px;
+    overflow: auto;
+    border-radius: 12px;
+    background: #f3f6fb;
+    font-size: 12px;
+}
+
+details.mx-detail {
+    border-top: 1px solid #edf1f8;
+    padding: 10px 0;
+}
+
+details.mx-detail summary {
+    cursor: pointer;
+    color: var(--brand-navy);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+details.mx-detail summary small {
+    margin-left: 8px;
+    color: #8b97ae;
+    font-weight: 400;
+}
+
+@media (max-width:760px) {
+    .mx-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.mx-filter {
+    display: grid;
+    gap: 6px;
+    color: var(--brand-navy);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mx-filter select {
+    height: 42px;
+    min-width: 240px;
+    padding: 0 14px;
+    border: 1px solid #d6dff0;
+    border-radius: var(--radius-control);
+    background: #f7f9fd;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+}
+
+#campaignTable th,
+#campaignTable td {
+    white-space: nowrap;
+}
+
+div.dt-container .dt-search input,
+div.dt-container .dt-length select {
+    height: 36px;
+    border: 1px solid #d6dff0;
+    border-radius: 10px;
+    padding: 0 10px;
+}
+
+/* Dashboard typography stays readable without changing other admin pages. */
+.admin-page #overview .breadcrumbs,
+.admin-page #overview .report-period,
+.admin-page #overview .page-heading .eyebrow,
+.admin-page #overview .heading-date,
+.admin-page #overview .metric-top,
+.admin-page #overview .metric-foot,
+.admin-page #overview .panel-heading p,
+.admin-page #overview .chart-period,
+.admin-page #overview .chart-legend,
+.admin-page #overview .chart-change small,
+.admin-page #overview .chart-y-labels,
+.admin-page #overview .chart-x-labels,
+.admin-page #overview .health-score-label span,
+.admin-page #overview .health-status,
+.admin-page #overview .health-list>div,
+.admin-page #overview .health-list strong,
+.admin-page #overview .table-summary,
+.admin-page #overview .health-check-label,
+.admin-page #overview th,
+.admin-page #overview td,
+.admin-page #overview .keyword-url,
+.admin-page #overview .rank-pill,
+.admin-page #overview .visibility-value,
+.admin-page #overview .dashboard-footer {
+    font-size: 13px;
+}
+
+.admin-page #overview .page-heading h1 {
+    font-size: clamp(30px, 2.2vw, 34px);
+}
+
+.admin-page #overview .page-subtitle,
+.admin-page #overview .page-heading select {
+    font-size: 15px;
+}
+
+.admin-page #overview .metric-top,
+.admin-page #overview .panel-heading h2 {
+    font-size: 15px;
+}
+
+.admin-page #overview .metric-value {
+    font-size: 29px;
+}
+
+.admin-page #overview .metric-foot {
+    font-size: 12px;
+}
+
+.admin-page #overview .chart-change,
+.admin-page #overview .health-status strong,
+.admin-page #overview .keyword-name {
+    font-size: 14px;
+}
+
+.admin-page #overview th {
+    font-size: 12px;
+}
+
+@media (max-width: 760px) {
+    .admin-page #overview .page-heading h1 {
+        font-size: clamp(27px, 6vw, 32px);
+    }
+
+    .admin-page #overview .breadcrumbs,
+    .admin-page #overview .report-period,
+    .admin-page #overview .page-heading .eyebrow,
+    .admin-page #overview .heading-date,
+    .admin-page #overview .metric-top,
+    .admin-page #overview .metric-foot,
+    .admin-page #overview .panel-heading p,
+    .admin-page #overview .chart-period,
+    .admin-page #overview .chart-legend,
+    .admin-page #overview .chart-y-labels,
+    .admin-page #overview .chart-x-labels,
+    .admin-page #overview .health-score-label span,
+    .admin-page #overview .health-status,
+    .admin-page #overview .health-list>div,
+    .admin-page #overview .health-list strong,
+    .admin-page #overview .table-summary,
+    .admin-page #overview .health-check-label,
+    .admin-page #overview th,
+    .admin-page #overview td,
+    .admin-page #overview .keyword-url,
+    .admin-page #overview .rank-pill,
+    .admin-page #overview .visibility-value {
+        font-size: 12px;
+    }
+
+    .admin-page #overview .page-subtitle,
+    .admin-page #overview .page-heading select {
+        font-size: 14px;
+    }
+
+    .admin-page #overview .metric-value {
+        font-size: 25px;
+    }
+
+    .admin-page #overview .chart-change,
+    .admin-page #overview .health-status strong,
+    .admin-page #overview .keyword-name {
+        font-size: 13px;
+    }
+}
+
+.google-ads-report-form .form-control.is-invalid,
+.google-ads-report-form .form-select.is-invalid {
+    border: 1px solid #dc3545 !important;
+    color: #dc3545;
+}
+
+.google-ads-report-form .form-control.is-invalid:focus,
+.google-ads-report-form .form-select.is-invalid:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+.google-ads-report-form .field-error {
+    color: #dc3545;
 }

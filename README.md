@@ -21,6 +21,18 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
+## Meta catalog API
+
+The authenticated **Meta catalog** page fetches `id` and `name` from the Meta Graph API when **Fetch catalog from Meta** is clicked. Configure these values in the server's `.env` file; do not commit the access token:
+
+```dotenv
+META_GRAPH_API_VERSION=v26
+META_CATALOG_ID=3480205012140815
+META_ACCESS_TOKEN=your_access_token
+```
+
+Replace the example `META_CATALOG_ID` with your actual numeric catalog ID from Meta Commerce Manager; do not enter the placeholder text `YOUR_ACTUAL_CATALOG_ID`. The version may be entered as `v26` or `v26.0`. After changing environment values on a server with cached configuration, run `php artisan config:clear`. Sign in and open **Reports → Meta catalog** to make a request. The request is `GET https://graph.facebook.com/v26.0/{catalog_id}?fields=id,name`; the token is sent in the HTTP Authorization header and is not included in the browser or request URL. The page displays the response returned by Meta. If Meta rejects the request, it displays Meta's error message and error code; verify the catalog ID, token validity, and the token's catalog permissions.
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.

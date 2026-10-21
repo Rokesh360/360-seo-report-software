@@ -49,7 +49,7 @@ class SocialMediaReportController extends Controller
             $assignment = $assignServices[(int) $report->assign_service_id] ?? null;
             $serviceIds = $assignment?->service_id;
             $types = collect(is_array($serviceIds) ? $serviceIds : array_filter([(int) $serviceIds]))
-                ->map(fn($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
+                ->map(fn ($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
                 ->filter()
                 ->unique()
                 ->values()
@@ -60,12 +60,15 @@ class SocialMediaReportController extends Controller
 
         return $result;
     }
+
     /* ============================================================
      |  INDEX — client cards
      ============================================================ */
     public function index()
     {
-        $clients = Client::withCount('assignServices')
+        $clients = Client::withCount([
+                'assignServices' => fn ($q) => $q->forSocialReports(),
+            ])
             ->orderBy('name')
             ->get();
 
@@ -77,7 +80,8 @@ class SocialMediaReportController extends Controller
      ============================================================ */
     public function clientServices(Client $client)
     {
-        $assignServices = AssignService::where('client_id', $client->id)
+        $assignServices = AssignService::forSocialReports()
+            ->where('client_id', $client->id)
             ->latest('from_date')
             ->get()
             ->each(function (AssignService $a) {
@@ -92,7 +96,8 @@ class SocialMediaReportController extends Controller
 
     public function assignServicesByClient(Client $client)
     {
-        $rows = AssignService::where('client_id', $client->id)
+        $rows = AssignService::forSocialReports()
+            ->where('client_id', $client->id)
             ->orderByDesc('from_date')
             ->get()
             ->map(fn($a) => [
@@ -175,7 +180,7 @@ class SocialMediaReportController extends Controller
             }
         }
 
-        $assignServices = AssignService::orderBy('id')->get();
+        $assignServices = AssignService::forSocialReports()->orderBy('id')->get();
 
         return view('social_media_reports.create', compact('assignServices', 'prefillId'));
     }
@@ -186,9 +191,9 @@ class SocialMediaReportController extends Controller
         $report->save();
 
         return redirect()
-            ->route('metrics-reports.index')
+            ->route('metrics-reports.previous-metrics', $report->assign_service_id)
             ->with('success', 'Monthly report created successfully.')
-            ->with('spend_summary', $this->spendSummary($report));
+            ->with('spend_summary', $this->spendSummary($report->fresh('assignService')));
     }
 
     /* ============================================================
@@ -196,7 +201,7 @@ class SocialMediaReportController extends Controller
      ============================================================ */
     public function edit(SocialMediaReport $metricsReport)
     {
-        $assignServices = AssignService::orderBy('id')->get();
+        $assignServices = AssignService::forSocialReports()->orderBy('id')->get();
 
         return view('social_media_reports.edit', [
             'report'         => $metricsReport,
@@ -209,8 +214,9 @@ class SocialMediaReportController extends Controller
         $metricsReport->update($request->validated());
 
         return redirect()
-            ->route('metrics-reports.index')
-            ->with('success', 'Report updated successfully.');
+            ->route('metrics-reports.previous-metrics', $metricsReport->assign_service_id)
+            ->with('success', 'Report updated successfully.')
+            ->with('spend_summary', $this->spendSummary($metricsReport->fresh('assignService')));
     }
 
     public function destroy(SocialMediaReport $metricsReport)
@@ -301,7 +307,8 @@ class SocialMediaReportController extends Controller
      ============================================================ */
     public function assignServicesList()
     {
-        return AssignService::orderBy('id')
+        return AssignService::forSocialReports()
+            ->orderBy('id')
             ->get()
             ->map(fn($a) => [
                 'id'                 => $a->id,

@@ -15,8 +15,8 @@
         <a href="{{ route('clients.create') }}" class="button button-primary"><span aria-hidden="true">+</span> New client</a>
     </section>
 
-    @if(session('success')) <div class="report-flash" role="status">{{ session('success') }}</div> @endif
-    @if(session('error')) <div class="report-validation" role="alert">{{ session('error') }}</div> @endif
+    <!-- @if(session('success')) <div class="report-flash" role="status">{{ session('success') }}</div> @endif
+    @if(session('error')) <div class="report-validation" role="alert">{{ session('error') }}</div> @endif -->
 
     <section class="panel report-table-panel" aria-label="Client directory">
         <div class="report-table-meta">

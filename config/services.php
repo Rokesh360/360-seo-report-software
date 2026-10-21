@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    'meta' => [
+        'graph_api_version' => env('META_GRAPH_API_VERSION', 'v21.0'),
+        'business_id'       => env('META_BUSINESS_ID'),
+        'ad_account_id'     => env('META_AD_ACCOUNT_ID'),
+        'catalog_id'        => env('META_CATALOG_ID'),
+        'access_token'      => env('META_ACCESS_TOKEN'),
+        'app_id'            => env('META_APP_ID'),
+        'app_secret'        => env('META_APP_SECRET'),
+        'redirect_uri'      => env('META_REDIRECT_URI'),
+        'scopes'            => ['ads_read', 'business_management', 'catalog_management'],
+    ],
+
 ];

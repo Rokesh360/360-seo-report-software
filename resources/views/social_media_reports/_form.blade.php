@@ -32,7 +32,6 @@ $serviceNameToType = [
 'Lead Generation Ads Monthly Report' => 'lead_generation_ads',
 'Social Media Engagement Monthly Report' => 'social_media_engagement',
 ];
-
 $selectedAssignService = $selectedAssignServiceId
 ? AssignService::find($selectedAssignServiceId)
 : null;
@@ -425,4 +424,3 @@ $backUrl = $selectedAssignServiceId
 </script>
 
 @include('admin.partials.footer')
-@include('social_media_reports._spend_alert')

@@ -151,7 +151,7 @@ class SocialMediaReportRequest extends FormRequest
         return Service::query()
             ->whereIn('id', $serviceIds)
             ->pluck('name')
-            ->map(fn($name) => $serviceNameToType[$name] ?? null)
+            ->map(fn (string $name) => $serviceNameToType[$name] ?? null)
             ->filter()
             ->unique()
             ->values()
@@ -169,7 +169,7 @@ class SocialMediaReportRequest extends FormRequest
             }
 
             $spent = collect((array) $this->input('campaign_results', []))
-                ->sum(fn($row) => (int) ($row['spend'] ?? 0));
+                ->sum(fn ($row) => (int) ($row['spend'] ?? 0));
 
             if ($spent > $budget) {
                 $validator->errors()->add(

@@ -5,5 +5,6 @@
         </div>
     </main>
 </div>
+@include('social_media_reports._spend_alert')
 </body>
 </html>

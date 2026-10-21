@@ -114,4 +114,37 @@ class AssignService extends Model
         return $query->where('from_date', '<=', $date)
             ->where('to_date', '>=', $date);
     }
+
+    public function getReportTypesAttribute(): array
+    {
+        $map = [
+            'whatsapp meta ads'       => 'whatsapp_meta_ads',
+            'lead generation ads'     => 'lead_generation_ads',
+            'social media engagement' => 'social_media_engagement',
+        ];
+
+        return $this->getServices()->pluck('name')
+            ->map(function ($name) use ($map) {
+                $n = \Illuminate\Support\Str::lower(trim($name));
+                foreach ($map as $needle => $type) {
+                    if (str_contains($n, $needle)) return $type;
+                }
+                return null;
+            })->filter()->unique()->values()->all();
+    }
+
+    public const SOCIAL_REPORT_EXCLUDED_SERVICE_IDS = [4, 5];
+
+    public function scopeForSocialReports($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('service_id')
+                ->orWhere(function ($inner) {
+                    foreach (self::SOCIAL_REPORT_EXCLUDED_SERVICE_IDS as $id) {
+                        $inner->whereJsonDoesntContain('service_id', (int) $id)
+                            ->whereJsonDoesntContain('service_id', (string) $id);
+                    }
+                });
+        });
+    }
 }

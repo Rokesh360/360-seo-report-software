@@ -21,7 +21,9 @@ $reportTypeByServiceName = [
 'Social Media Engagement Monthly Report' => 'social_media_engagement',
 ];
 $reportTypesByServiceId = $services->mapWithKeys(fn ($service) => [
-$service->id => $reportTypeByServiceName[$service->name] ?? '',
+$service->id => $reportTypeByServiceName[$service->name]
+    ?? \App\Support\ReportServiceType::googleAdsTypeFromServiceName($service->name)
+    ?? '',
 ]);
 $selectedReportTypes = collect($selectedServiceIds)
 ->map(fn ($serviceId) => $reportTypesByServiceId[$serviceId] ?? '')

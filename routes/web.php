@@ -4,6 +4,8 @@ use App\Http\Controllers\AssignServiceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GoogleAdsReportController;
+use App\Http\Controllers\MetaCatalogController;
 use App\Http\Controllers\SeoReportController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SocialMediaReportController;
@@ -21,12 +23,12 @@ Route::middleware('guest')->group(function () {
         ->name('login.store');
 });
 
-    // Route::get('/clear-cache', function () {
-    //     Artisan::call('optimize:clear');
+// Route::get('/clear-cache', function () {
+//     Artisan::call('optimize:clear');
 
-    //     return 'Laravel optimization and route caches cleared successfully.';
-    // });
-    
+//     return 'Laravel optimization and route caches cleared successfully.';
+// });
+
 //     Route::get('/storage-link', function () {
 //     Artisan::call('storage:link');
 
@@ -38,6 +40,33 @@ Route::middleware('auth')->group(function () {
     // Route::view('/dashboard', 'admin.dashboard')->name('dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::get('/meta-catalog', ['App\\Http\\Controllers\\MetaCatalogController', 'index'])->name('meta-catalog.index');
+    Route::get('/meta-catalog/connect', ['App\\Http\\Controllers\\MetaCatalogController', 'connect'])->name('meta-catalog.connect');
+    Route::get('/meta-catalog/callback', ['App\\Http\\Controllers\\MetaCatalogController', 'callback'])->name('meta-catalog.callback');
+
+    Route::get('/google-ads', [GoogleAdsReportController::class, 'index'])->name('google-ads.index');
+    Route::get('/google-ads/clients/{client}', [GoogleAdsReportController::class, 'clientServices'])
+        ->whereNumber('client')
+        ->name('google-ads.client-services');
+    Route::get('/google-ads/assign-services/{assignService}', [GoogleAdsReportController::class, 'previousMetrics'])
+        ->whereNumber('assignService')
+        ->name('google-ads.assign-service');
+    Route::get('/google-ads-reports/create', [GoogleAdsReportController::class, 'create'])
+        ->name('google-ads-reports.create');
+    Route::post('/google-ads-reports', [GoogleAdsReportController::class, 'store'])
+        ->name('google-ads-reports.store');
+    Route::get('/google-ads-reports/{googleAdsReport}/edit', [GoogleAdsReportController::class, 'edit'])
+        ->whereNumber('googleAdsReport')
+        ->name('google-ads-reports.edit');
+    Route::put('/google-ads-reports/{googleAdsReport}', [GoogleAdsReportController::class, 'update'])
+        ->whereNumber('googleAdsReport')
+        ->name('google-ads-reports.update');
+    Route::delete('/google-ads-reports/{googleAdsReport}', [GoogleAdsReportController::class, 'destroy'])
+        ->whereNumber('googleAdsReport')
+        ->name('google-ads-reports.destroy');
+    Route::get('/google-ads-reports/{googleAdsReport}/pdf', [GoogleAdsReportController::class, 'exportPdf'])
+        ->whereNumber('googleAdsReport')
+        ->name('google-ads-reports.pdf');
 
     /* ============================================================
      |  SEO Reports
@@ -120,7 +149,7 @@ Route::middleware('auth')->group(function () {
         'metrics-reports/assign-services/{assignService}/previous-metrics',
         [SocialMediaReportController::class, 'previousMetrics']
     )->name('metrics-reports.previous-metrics');
-    
+
 
     Route::get(
         'metrics-reports/service/{assignService}/pdf',

@@ -71,6 +71,25 @@
             </svg>
             Metrics reports
         </a>
+        <a @class(['side-link', 'is-active'=> $active === 'google-ads'])
+            href="{{ route('google-ads.index') }}"
+            @if($active === 'google-ads') aria-current="page" @endif>
+            <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 15.5 8 4l3 8 2-5 3 8" />
+            </svg>
+            Google Ads reports
+        </a>
+        <a @class(['side-link', 'is-active'=> $active === 'meta-catalog'])
+            href="{{ route('meta-catalog.index') }}"
+            @if($active === 'meta-catalog') aria-current="page" @endif>
+            <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6.5 10 3l7 3.5v7L10 17l-7-3.5v-7z" />
+                <path d="m3.5 6.75 6.5 3.5 6.5-3.5M10 10.25V17" />
+            </svg>
+            Meta ads
+        </a>
     </nav>
 
     <div class="sidebar-bottom">
