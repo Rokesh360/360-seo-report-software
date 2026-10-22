@@ -3816,3 +3816,110 @@ div.dt-container .dt-length select {
 .google-ads-report-form .field-error {
     color: #dc3545;
 }
+
+.alert-panel {
+    border: 2px solid #d27663;
+    background: #fff7f4;
+    border-radius: 12px;
+    box-shadow: 0 4px 18px rgba(210, 118, 99, .15);
+    transition: background .4s, outline-color .4s;
+    margin-bottom: 20px;
+}
+
+.alert-panel .panel-heading {
+    border-bottom-color: #f0d0c8;
+}
+
+.alert-panel h2 {
+    color: #b94f3b;
+}
+
+.alert-panel.alert-deadline {
+    border-color: #d99a2b;
+    background: #fffaf0;
+    box-shadow: 0 4px 18px rgba(217, 154, 43, .15);
+}
+
+.alert-panel.alert-deadline .panel-heading {
+    border-bottom-color: #f0e0b8;
+}
+
+.alert-panel.alert-deadline h2 {
+    color: #a8741a;
+}
+
+.alert-panel.is-highlighted {
+    animation: alertPulse 1s ease-in-out 3;
+    outline: 3px solid #d27663;
+    outline-offset: 4px;
+}
+
+.alert-panel.alert-deadline.is-highlighted {
+    outline-color: #d99a2b;
+}
+
+@keyframes alertPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 18px rgba(210, 118, 99, .15);
+    }
+
+    50% {
+        box-shadow: 0 0 0 14px rgba(210, 118, 99, 0);
+    }
+}
+
+.days-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.days-urgent {
+    background: #fde4de;
+    color: #b94f3b;
+}
+
+.days-soon {
+    background: #fdf0d2;
+    color: #a8741a;
+}
+
+.lb-popup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.lb-popup-table th {
+    padding: 8px;
+    border-bottom: 1px solid #e1e8f4;
+    color: #6f7c96;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.lb-popup-table td {
+    padding: 8px;
+    border-bottom: 1px solid #edf1f8;
+    color: #46557a;
+}
+
+.lb-popup-table td.lb-low {
+    color: #d27663;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.alert-popup-title {
+    margin: 16px 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #46557a;
+    text-align: left;
+}

@@ -165,88 +165,69 @@ $icons = [
         </article>
     </section>
 
+    @php
+    $lowBudgetRows = $lowBudgetRows ?? collect();
+    $deadlineRows = $deadlineRows ?? collect();
+    $deadlineDays = $deadlineDays ?? 2;
+    $lowBudgetLimit = $lowBudgetLimit ?? 1500;
+    @endphp
+    @if($lowBudgetRows->isNotEmpty() || $deadlineRows->isNotEmpty())
+
+    {{-- ============ DEADLINE ALERT PANEL ============ --}}
+    @if($deadlineRows->isNotEmpty())
+    <section class="panel rankings-panel alert-panel alert-deadline" id="deadline-records">
+        <div class="panel-heading rankings-heading">
+            <div>
+                <h2>Upcoming deadlines</h2>
+                <p>Services ending within the next {{ $deadlineDays }} days, soonest first</p>
+            </div>
+            <span class="table-summary">
+                {{ $deadlineRows->count() }} {{ \Illuminate\Support\Str::plural('record', $deadlineRows->count()) }}
+            </span>
+        </div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>CLIENT</th>
+                        <th>SERVICE</th>
+                        <th>START</th>
+                        <th>DEADLINE</th>
+                        <th>TIME LEFT</th>
+                        <th>BUDGET</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($deadlineRows as $row)
+                    <tr>
+                        <td>{{ $row['client'] }}</td>
+                        <td>{{ $row['service'] }}</td>
+                        <td style="white-space:nowrap;">{{ $row['from_date'] ? \Carbon\Carbon::parse($row['from_date'])->format('d M Y') : '—' }}</td>
+                        <td style="white-space:nowrap;">{{ $row['to_date']->format('d M Y') }}</td>
+                        <td>
+                            <span class="days-pill {{ $row['days_left'] <= 2 ? 'days-urgent' : 'days-soon' }}">
+                                {{ $row['days_left'] === 0 ? 'Today' : $row['days_left'] . ' ' . \Illuminate\Support\Str::plural('day', $row['days_left']) }}
+                            </span>
+                        </td>
+                        <td>₹{{ number_format($row['budget']) }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+    @endif
+
+    {{-- ============ LOW BUDGET ALERT PANEL ============ --}}
     @if($lowBudgetRows->isNotEmpty())
-    <style>
-        #low-budget-records.is-highlighted {
-            animation: lowBudgetPulse 1s ease-in-out 3;
-            outline: 3px solid #d27663;
-            outline-offset: 4px;
-        }
-
-
-        @keyframes lowBudgetPulse {
-
-            0%,
-            100% {
-                box-shadow: 0 4px 18px rgba(210, 118, 99, 0.15);
-            }
-
-            50% {
-                box-shadow: 0 0 0 14px rgba(210, 118, 99, 0);
-            }
-        }
-
-        #low-budget-records {
-            border: 2px solid #d27663;
-            background: #fff7f4;
-            border-radius: 12px;
-            box-shadow: 0 4px 18px rgba(210, 118, 99, 0.15);
-            transition: background .4s, outline-color .4s;
-        }
-
-        #low-budget-records .panel-heading {
-            border-bottom-color: #f0d0c8;
-        }
-
-        #low-budget-records h2 {
-            color: #b94f3b;
-        }
-
-        #low-budget-records.low-budget-default {
-            border: 2px solid #d27663;
-            background: #fff7f4;
-        }
-
-        .lb-popup-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            text-align: left;
-        }
-
-        .lb-popup-table th {
-            padding: 8px;
-            border-bottom: 1px solid #e1e8f4;
-            color: #6f7c96;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .lb-popup-table td {
-            padding: 8px;
-            border-bottom: 1px solid #edf1f8;
-            color: #46557a;
-        }
-
-        .lb-popup-table td.lb-low {
-            color: #d27663;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-    </style>
-
-    <section class="panel rankings-panel low-budget-default" id="low-budget-records">
+    <section class="panel rankings-panel alert-panel" id="low-budget-records">
         <div class="panel-heading rankings-heading">
             <div>
                 <h2>Low available budget</h2>
-                <p>
-                    Remaining budget for the selected client, sorted from lowest to highest
-                </p>
+                <p>Remaining budget of ₹{{ number_format($lowBudgetLimit) }} or less, sorted from lowest to highest</p>
             </div>
-
             <span class="table-summary">
-                {{ $lowBudgetRows->count() }}
-                {{ \Illuminate\Support\Str::plural('record', $lowBudgetRows->count()) }}
+                {{ $lowBudgetRows->count() }} {{ \Illuminate\Support\Str::plural('record', $lowBudgetRows->count()) }}
             </span>
         </div>
         <div class="table-scroll">
@@ -264,48 +245,45 @@ $icons = [
                 </thead>
                 <tbody>
                     @foreach($lowBudgetRows as $row)
-<tr>
-    <td>{{ $row['client'] }}</td>
-    <td>{{ $row['service'] }}</td>
-
-    <td style="white-space:nowrap;">
-        {{ $row['to_date'] ? \Carbon\Carbon::parse($row['to_date'])->format('d M Y') : '—' }}
-    </td>
-
-    <td>{{ $row['date']->format('d M Y') }}</td>
-    <td>₹{{ number_format($row['budget']) }}</td>
-    <td>₹{{ number_format($row['spent']) }}</td>
-    <td>
-        <strong style="color:#d27663;">
-            ₹{{ number_format($row['available']) }}
-        </strong>
-    </td>
-</tr>
-@endforeach
+                    <tr>
+                        <td>{{ $row['client'] }}</td>
+                        <td>{{ $row['service'] }}</td>
+                        <td style="white-space:nowrap;">{{ $row['to_date'] ? \Carbon\Carbon::parse($row['to_date'])->format('d M Y') : '—' }}</td>
+                        <td>{{ $row['date']->format('d M Y') }}</td>
+                        <td>₹{{ number_format($row['budget']) }}</td>
+                        <td>₹{{ number_format($row['spent']) }}</td>
+                        <td><strong style="color:#d27663;">₹{{ number_format($row['available']) }}</strong></td>
+                    </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </section>
+    @endif
 
     @php
-    $lowBudgetPopupRows = $lowBudgetRows->map(function ($r) {
-    return [
-        'client'    => $r['client'],
-        'service'   => $r['service'],
-'deadline' => $r['to_date']
-    ? \Carbon\Carbon::parse($r['to_date'])->format('d M Y')
-    : '—',
-        'date'      => $r['date']->format('d M Y'),
-        'available' => '₹' . number_format($r['available']),
-    ];
-})->values()->all();
+    $lowBudgetPopupRows = $lowBudgetRows->map(fn($r) => [
+    'client' => $r['client'],
+    'service' => $r['service'],
+    'deadline' => $r['to_date'] ? \Carbon\Carbon::parse($r['to_date'])->format('d M Y') : '—',
+    'date' => $r['date']->format('d M Y'),
+    'available' => '₹' . number_format($r['available']),
+    ])->values()->all();
+
+    $deadlinePopupRows = $deadlineRows->map(fn($r) => [
+    'client' => $r['client'],
+    'service' => $r['service'],
+    'deadline' => $r['to_date']->format('d M Y'),
+    'days_left' => $r['days_left'],
+    ])->values()->all();
     @endphp
 
     <script>
         (function() {
-            const rows = @json($lowBudgetPopupRows);
-
-            const count = rows.length;
+            const budgetRows = @json($lowBudgetPopupRows);
+            const deadlineRows = @json($deadlinePopupRows);
+            const deadlineDays = @json($deadlineDays);
+            const lowBudgetLimit = @json($lowBudgetLimit);
 
             const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
                 '&': '&amp;',
@@ -315,52 +293,71 @@ $icons = [
                 "'": '&#39;'
             } [c]));
 
-            const body = rows.map((r) =>
-    '<tr>' +
-    '<td>' + esc(r.client) + '</td>' +
-    '<td>' + esc(r.service) + '</td>' +
-    '<td>' + esc(r.deadline) + '</td>' +
-    '<td>' + esc(r.date) + '</td>' +
-    '<td class="lb-low">' + esc(r.available) + '</td>' +
-    '</tr>'
-).join('');
+            const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
-            const html =
-                '<p style="margin:0 0 12px;color:#6f7c96;font-size:14px;">' +
-                count + (count === 1 ? ' record has' : ' records have') +
-                ' a positive remaining budget, sorted from lowest to highest.' +
-                '</p>' +
-                '<div style="max-height:300px;overflow:auto;">' +
-                '<table class="lb-popup-table">' +
-                '<thead><tr>' +
-'<th>CLIENT</th>' +
-'<th>SERVICE</th>' +
-'<th>DEADLINE</th>' +
-'<th>REPORT DATE</th>' +
-'<th>AVAILABLE</th>' +
-'</tr></thead>' +
-                '<tbody>' + body + '</tbody>' +
-                '</table>' +
-                '</div>';
+            let html = '';
+
+            if (deadlineRows.length) {
+                const body = deadlineRows.map((r) => {
+                    const label = r.days_left === 0 ? 'Today' : plural(r.days_left, 'day', 'days');
+                    const cls = r.days_left <= 2 ? 'days-urgent' : 'days-soon';
+                    return '<tr>' +
+                        '<td>' + esc(r.client) + '</td>' +
+                        '<td>' + esc(r.service) + '</td>' +
+                        '<td>' + esc(r.deadline) + '</td>' +
+                        '<td><span class="days-pill ' + cls + '">' + esc(label) + '</span></td>' +
+                        '</tr>';
+                }).join('');
+
+                html +=
+                    '<div class="alert-popup-title">⏰ ' + plural(deadlineRows.length, 'service ends', 'services end') +
+                    ' within ' + deadlineDays + ' days</div>' +
+                    '<div style="max-height:200px;overflow:auto;"><table class="lb-popup-table">' +
+                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>TIME LEFT</th></tr></thead>' +
+                    '<tbody>' + body + '</tbody></table></div>';
+            }
+
+            if (budgetRows.length) {
+                const body = budgetRows.map((r) =>
+                    '<tr>' +
+                    '<td>' + esc(r.client) + '</td>' +
+                    '<td>' + esc(r.service) + '</td>' +
+                    '<td>' + esc(r.deadline) + '</td>' +
+                    '<td>' + esc(r.date) + '</td>' +
+                    '<td class="lb-low">' + esc(r.available) + '</td>' +
+                    '</tr>'
+                ).join('');
+
+                html +=
+                    '<div class="alert-popup-title">💰 ' + plural(budgetRows.length, 'record has', 'records have') +
+                    ' low remaining budget</div>' +
+                    '<div style="max-height:200px;overflow:auto;"><table class="lb-popup-table">' +
+                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>REPORT DATE</th><th>AVAILABLE</th></tr></thead>' +
+                    '<tbody>' + body + '</tbody></table></div>';
+            }
 
             const highlight = () => {
-                const el = document.getElementById('low-budget-records');
-                if (!el) return;
-                el.scrollIntoView({
+                // scroll to the first panel that exists, pulse every panel
+                const els = ['deadline-records', 'low-budget-records']
+                    .map((id) => document.getElementById(id)).filter(Boolean);
+                if (!els.length) return;
+                els[0].scrollIntoView({
                     behavior: 'smooth',
                     block: 'center'
                 });
-                el.classList.remove('is-highlighted');
-                void el.offsetWidth; // restart the animation if it was already applied
-                el.classList.add('is-highlighted');
-                setTimeout(() => el.classList.remove('is-highlighted'), 3500);
+                els.forEach((el) => {
+                    el.classList.remove('is-highlighted');
+                    void el.offsetWidth;
+                    el.classList.add('is-highlighted');
+                    setTimeout(() => el.classList.remove('is-highlighted'), 3500);
+                });
             };
 
             const show = () => Swal.fire({
                 icon: 'warning',
-                title: 'Low available budget',
+                title: 'Attention needed',
                 html: html,
-                width: 720,
+                width: 760,
                 confirmButtonText: 'View records',
             }).then((result) => {
                 if (result.isConfirmed) highlight();

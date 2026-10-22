@@ -11,6 +11,36 @@ use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
+    private const DEADLINE_ALERT_DAYS = 2;
+    private const LOW_BUDGET_LIMIT    = 1500;
+
+    private function deadlineRows(Collection $assignServices, ?int $clientId): Collection
+    {
+        $today = Carbon::today();
+
+        return $assignServices
+            ->filter(fn($a) => $a->to_date && (! $clientId || (int) $a->client_id === $clientId))
+            ->map(function ($a) use ($today) {
+                $to       = Carbon::parse($a->to_date)->startOfDay();
+                $daysLeft = (int) $today->diffInDays($to, false); // negative = already passed
+
+                if ($daysLeft < 0 || $daysLeft > self::DEADLINE_ALERT_DAYS) {
+                    return null;
+                }
+
+                return [
+                    'client'    => $a->client?->name ?? 'Unknown client',
+                    'service'   => $a->title ?: 'Service #' . $a->id,
+                    'from_date' => $a->from_date,
+                    'to_date'   => $to,
+                    'days_left' => $daysLeft,
+                    'budget'    => (float) $a->budget,
+                ];
+            })
+            ->filter()
+            ->sortBy('days_left')
+            ->values();
+    }
 
     public function index(Request $request)
     {
@@ -83,6 +113,7 @@ class DashboardController extends Controller
         /* ---------------- Tables ---------------- */
         $clientRows    = $this->clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
         $lowBudgetRows = $this->lowBudgetRows($monthReports, $assignById); // use $current to follow the selected client
+        $deadlineRows = $this->deadlineRows($assignServices, $clientId);
 
         return view('admin.dashboard', [
             'month'              => $month,
@@ -94,11 +125,14 @@ class DashboardController extends Controller
             'chart'              => $chart,
             'donut'              => $donut,
             'clientRows'         => $clientRows,
-            'lowBudgetRows'      => $lowBudgetRows,
             'reportCount'        => $current->count(),
             'monthOptions'       => collect(range(0, 11))->map(fn($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
             'clients'            => $clients,
             'clientId'           => $clientId,
+            'lowBudgetRows'      => $lowBudgetRows,
+            'lowBudgetLimit'     => self::LOW_BUDGET_LIMIT,
+            'deadlineRows'       => $deadlineRows,
+            'deadlineDays'       => self::DEADLINE_ALERT_DAYS,
         ]);
     }
 
@@ -158,7 +192,7 @@ class DashboardController extends Controller
                 $available = $budget - $spent;
 
                 // Exclude fully spent or over-budget services.
-                if ($available <= 0) {
+                if ($available <= 0 || $available > self::LOW_BUDGET_LIMIT) {
                     return null;
                 }
 
