@@ -4,22 +4,19 @@
     </IfModule>
 
     RewriteEngine On
+    RewriteBase /360-seo-monthly-reports/
 
-    # Handle Authorization Header
+    # Pass Authorization header through
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+    # Block access to sensitive files
+    RewriteRule ^(\.env|composer\.(json|lock)|artisan|package\.json)$ - [F,L]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+    # Serve real files from public/ (absolute path = internal rewrite)
+    RewriteCond %{DOCUMENT_ROOT}/360-seo-monthly-reports/public/$1 -f
+    RewriteRule ^(.+)$ %{DOCUMENT_ROOT}/360-seo-monthly-reports/public/$1 [L]
 
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+    # Everything else → Laravel front controller (absolute path = internal rewrite)
+    RewriteRule ^ %{DOCUMENT_ROOT}/360-seo-monthly-reports/public/index.php [L]
 </IfModule>

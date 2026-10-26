@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignServiceRequest;
+use App\Models\MetaAdsDailyStat;
 use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\Service;
@@ -17,6 +18,59 @@ class AssignServiceController extends Controller
         protected AssignServiceRepository $repository
     ) {
         //
+    }
+
+    private function campaignOptions()
+    {
+        return MetaAdsDailyStat::query()
+            ->whereDate('report_date', now()->toDateString())
+            ->selectRaw('campaign_id, MAX(campaign_name) as campaign_name,
+         SUM(leads) as total_leads,
+         SUM(messaging_conversations) as total_msgs,
+         SUM(spend) as total_spend')
+            ->groupBy('campaign_id')
+            ->orderBy('campaign_name')
+            ->get()
+            ->map(function ($c) {
+                $name  = strtolower($c->campaign_name ?? '');
+                $types = [];
+
+                if (preg_match('/whats\s?app|\bwa\b/', $name)) {
+                    $types[] = 'whatsapp_meta_ads';
+                }
+                if (str_contains($name, 'lead')) {
+                    $types[] = 'lead_generation_ads';
+                }
+                if (str_contains($name, 'engagement')) {
+                    $types[] = 'social_media_engagement';
+                }
+
+                // Name gave no hint: fall back to what the campaign actually produced
+                if (! $types) {
+                    if ($c->total_leads > 0) {
+                        $types[] = 'lead_generation_ads';
+                    } elseif ($c->total_msgs > 0) {
+                        $types[] = 'whatsapp_meta_ads';
+                    }
+                }
+
+                $c->types = $types;
+                return $c;
+            });
+    }
+
+    /** Keep campaign_ids only if a selected service supports campaigns. */
+    private function cleanCampaigns(array $data): array
+    {
+        $available = Service::whereIn('id', $data['service_id'] ?? [])
+            ->where('is_campaign_available', true)
+            ->exists();
+
+        $data['campaign_ids'] = $available && ! empty($data['campaign_ids'])
+            ? array_values($data['campaign_ids'])
+            : null;
+
+        return $data;
     }
 
     public function index(Request $request): View
@@ -52,6 +106,7 @@ class AssignServiceController extends Controller
         return view('assign-services.create', [
             'client'           => $client,
             'services'         => Service::orderBy('name')->get(),
+            'campaigns'        => $this->campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $clientId,
         ]);
@@ -59,7 +114,7 @@ class AssignServiceController extends Controller
 
     public function store(AssignServiceRequest $request): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $this->cleanCampaigns($request->validated());
 
         // Force the client from the query string / request — never trust the form
         $data['client_id'] = $request->integer('client')
@@ -88,6 +143,7 @@ class AssignServiceController extends Controller
             'assignService'    => $assignService,
             'client'           => $assignService->client,
             'services'         => Service::orderBy('name')->get(),
+            'campaigns'        => $this->campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $assignService->client_id,
         ]);
@@ -96,7 +152,7 @@ class AssignServiceController extends Controller
     public function update(AssignServiceRequest $request, int $id): RedirectResponse
     {
         $assignService = $this->repository->find($id);
-        $this->repository->update($assignService, $request->validated());
+        $this->repository->update($assignService, $this->cleanCampaigns($request->validated()));
 
         return redirect()
             ->route('assign-services.index')

@@ -30,6 +30,7 @@ class AssignService extends Model
         'target_audience',
         'campaign_focus',
         'key_highlights',
+        'campaign_ids',
         'key_observations',
         'performance_highlights',
         'monthly_summary',
@@ -44,6 +45,7 @@ class AssignService extends Model
         'performance_highlights' => 'array',
         'monthly_summary' => 'array',
         'next_month_plan' => 'array',
+        'campaign_ids' => 'array',
     ];
 
     public function client(): BelongsTo

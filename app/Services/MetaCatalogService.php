@@ -319,11 +319,6 @@ class MetaCatalogService
                     ]),
                     'level'  => 'campaign',
                     'limit'  => 200,
-                    'filtering' => json_encode([[
-                        'field'    => 'campaign.effective_status',
-                        'operator' => 'IN',
-                        'value'    => ['ACTIVE', 'PAUSED'],
-                    ]]),
                 ] + $time
             )),
 

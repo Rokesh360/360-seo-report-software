@@ -27,17 +27,35 @@
         @if($method !== 'POST') @method($method) @endif
 
         <div class="client-fields row g-3">
-            <div class="col-12">
+            <div class="col-md-4">
                 <label class="form-label" for="service-name">Service name</label>
                 <input id="service-name" name="name" class="form-control" value="{{ $v('name') }}" required>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="form-label" for="service-status">Status</label>
                 <select id="service-status" name="status" class="form-select">
                     <option value="1" @selected($v('status', 1)==1)>Active</option>
                     <option value="0" @selected($v('status', 1)==0)>Inactive</option>
                 </select>
+            </div>
+
+            <div class="col-md-4">
+                <div class="form-check mt-4">
+                    <input
+                        type="checkbox"
+                        id="service-is-campaign-available"
+                        name="is_campaign_available"
+                        value="1"
+                        class="form-check-input"
+                        @checked((int) $v('is_campaign_available', 0)===1)>
+
+                    <label
+                        class="form-check-label"
+                        for="service-is-campaign-available">
+                        Is campaign available?
+                    </label>
+                </div>
             </div>
         </div>
 

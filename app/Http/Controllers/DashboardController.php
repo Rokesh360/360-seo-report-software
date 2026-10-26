@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AssignService;
 use App\Models\Client;
+use App\Models\MetaAdsDailyStat;
 use App\Models\SocialMediaReport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -69,9 +70,6 @@ class DashboardController extends Controller
         $current  = $this->reportsBetween($start, $end, $scopedIds);
         $previous = $this->reportsBetween($prevStart, $prevEnd, $scopedIds);
 
-        // Low available budget keeps covering every client, regardless of the selected one.
-        $monthReports = $this->reportsBetween($start, $end, $scopedIds);
-
         $days  = $start->daysInMonth;
         $daily = $this->dailySeries($current, $days);
         $nowT  = $this->totals($current);
@@ -112,7 +110,7 @@ class DashboardController extends Controller
 
         /* ---------------- Tables ---------------- */
         $clientRows    = $this->clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
-        $lowBudgetRows = $this->lowBudgetRows($monthReports, $assignById); // use $current to follow the selected client
+        $lowBudgetRows = $this->lowBudgetRows($assignServices, $clientId);
         $deadlineRows = $this->deadlineRows($assignServices, $clientId);
 
         return view('admin.dashboard', [
@@ -170,38 +168,43 @@ class DashboardController extends Controller
             ]);
     }
 
-    private function lowBudgetRows(Collection $reports, Collection $assignById): Collection
+    private function lowBudgetRows(Collection $assignServices, ?int $clientId): Collection
     {
-        return $reports
-            ->map(function (SocialMediaReport $report) use ($assignById) {
-                $assignment = $assignById->get((int) $report->assign_service_id);
+        // Total spend + last synced day per campaign
+        $stats = MetaAdsDailyStat::query()
+            ->selectRaw('campaign_id, SUM(spend) as spent, MAX(report_date) as last_date')
+            ->groupBy('campaign_id')
+            ->get()
+            ->keyBy(fn($row) => (string) $row->campaign_id);
 
-                if (! $assignment) {
+        return $assignServices
+            ->filter(function ($a) use ($clientId) {
+                return (! $clientId || (int) $a->client_id === $clientId)
+                    && ($a->status === null || (int) $a->status === 1)   // active assignments only
+                    && ! empty($a->campaign_ids);                        // must have campaigns selected
+            })
+            ->map(function ($a) use ($stats) {
+                $campaignStats = collect($a->campaign_ids)
+                    ->map(fn($id) => $stats->get((string) $id))
+                    ->filter();
+
+                $budget    = (float) $a->budget;
+                $spent     = (float) $campaignStats->sum('spent');
+                $available = $budget - $spent;                           // budget - spent
+
+                // Show popup only when available budget is within the limit
+                if ($available > self::LOW_BUDGET_LIMIT) {
                     return null;
                 }
 
-                $budget = (float) $assignment->budget;
-
-                $spent = collect($report->campaign_results ?? [])
-                    ->sum(fn($row) => (float) preg_replace(
-                        '/[^0-9.]/',
-                        '',
-                        (string) ($row['spend'] ?? 0)
-                    ));
-
-                $available = $budget - $spent;
-
-                // Exclude fully spent or over-budget services.
-                if ($available <= 0 || $available > self::LOW_BUDGET_LIMIT) {
-                    return null;
-                }
+                $lastDate = $campaignStats->max('last_date');
 
                 return [
-                    'client'    => $assignment->client?->name ?? 'Unknown client',
-                    'service'   => $assignment->title ?: 'Service #' . $assignment->id,
-                    'from_date' => $assignment->from_date,
-                    'to_date'   => $assignment->to_date,
-                    'date'      => $report->created_at,
+                    'client'    => $a->client?->name ?? 'Unknown client',
+                    'service'   => $a->title ?: 'Service #' . $a->id,
+                    'from_date' => $a->from_date,
+                    'to_date'   => $a->to_date,
+                    'date'      => $lastDate ? Carbon::parse($lastDate) : now(),
                     'budget'    => $budget,
                     'spent'     => $spent,
                     'available' => $available,

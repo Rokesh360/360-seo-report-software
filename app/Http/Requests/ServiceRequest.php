@@ -26,6 +26,10 @@ class ServiceRequest extends FormRequest
                     ->ignore($serviceId)
                     ->whereNull('deleted_at'),
             ],
+            'is_campaign_available' => [
+                'required',
+                'boolean',
+            ],
             'status' => [
                 'required',
                 'boolean',

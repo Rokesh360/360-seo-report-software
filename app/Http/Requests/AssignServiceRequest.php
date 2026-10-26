@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Service;
+use App\Models\MetaAdsDailyStat;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AssignServiceRequest extends FormRequest
@@ -30,6 +31,8 @@ class AssignServiceRequest extends FormRequest
             'target_audience'    => ['nullable', 'string'],
             'campaign_focus'     => ['nullable', 'string'],
             'key_highlights'     => ['nullable', 'string'],
+            'campaign_ids'   => ['nullable', 'array'],
+            'campaign_ids.*' => ['string', 'exists:meta_ads_daily_stats,campaign_id'],
         ];
 
         $reportServiceSelected = Service::query()
@@ -91,6 +94,7 @@ class AssignServiceRequest extends FormRequest
             'next_month_plan.messaging' => 'messaging plan',
             'next_month_plan.high_performers' => 'high-performing audience plan',
             'next_month_plan.quality_leads' => 'quality leads plan',
+            'campaign_ids' => 'campaigns',
         ];
     }
 
@@ -113,5 +117,42 @@ class AssignServiceRequest extends FormRequest
             'monthly_summary.*.required' => 'Please complete all monthly summary fields.',
             'next_month_plan.*.required' => 'Please complete all next month plan fields.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            // Budget already invalid (empty / not a number): nothing more to check
+            if ($validator->errors()->has('budget')) {
+                return;
+            }
+
+            $campaignIds = array_filter((array) $this->input('campaign_ids', []));
+            if (empty($campaignIds)) {
+                return;
+            }
+
+            // Campaigns only count when a selected service supports them
+            $campaignServiceSelected = Service::whereIn('id', (array) $this->input('service_id', []))
+                ->where('is_campaign_available', true)
+                ->exists();
+            if (! $campaignServiceSelected) {
+                return;
+            }
+
+            $spent = (float) MetaAdsDailyStat::query()
+                ->whereDate('report_date', now()->toDateString())
+                ->whereIn('campaign_id', $campaignIds)
+                ->sum('spend');
+            $budget = (float) $this->input('budget');
+
+            if ($budget < $spent) {
+                $validator->errors()->add(
+                    'budget',
+                    'Budget must be at least INR ' . number_format($spent, 2)
+                        . ' (the amount already spent on the selected campaigns). Please enter a proper budget.'
+                );
+            }
+        });
     }
 }

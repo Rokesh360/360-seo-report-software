@@ -30,7 +30,7 @@
                         <th>S.NO</th>
                         <th>SERVICE</th>
                         <th>STATUS</th>
-                        <!-- <th class="report-actions-heading" style="text-align: center;">ACTIONS</th> -->
+                        <th class="report-actions-heading" style="text-align: center;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -45,7 +45,7 @@
                                 'client-status-inactive' => (int) $service->status !== 1,
                                 ])>{{ $service->status ? 'Active' : 'Inactive' }}</span>
                         </td>
-                        <!-- <td class="report-actions-cell">
+                        <td class="report-actions-cell">
                             <div class="report-row-actions">
                                 <a href="{{ route('services.edit', $service->id) }}" class="report-edit-link">Edit</a>
                                 <form action="{{ route('services.destroy', $service->id) }}" method="POST" onsubmit="return confirm('Delete this service?')">
@@ -57,7 +57,7 @@
                                     </button>
                                 </form>
                             </div>
-                        </td> -->
+                        </td>
                     </tr>
                     @endforeach
                 </tbody>

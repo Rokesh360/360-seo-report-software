@@ -68,6 +68,8 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('googleAdsReport')
         ->name('google-ads-reports.pdf');
 
+    Route::post('/meta-catalog/store-today', [MetaCatalogController::class, 'storeToday'])->name('meta-catalog.store-today');
+
     /* ============================================================
      |  SEO Reports
      ============================================================ */

@@ -8,12 +8,19 @@
 @php
 $v = fn ($key, $default = '') => old($key, $assignService?->{$key} ?? $default);
 
+$selectedCampaignIds = array_map('strval', (array) old('campaign_ids', $assignService?->campaign_ids ?? []));
+
 // Multi-select: existing service IDs
 $selectedServiceIds = old('service_id', $assignService?->service_id ?? []);
 if (!is_array($selectedServiceIds)) {
 $selectedServiceIds = $selectedServiceIds ? [(int) $selectedServiceIds] : [];
 }
 $selectedServiceIds = array_map('intval', $selectedServiceIds);
+
+$showCampaigns = $services
+->whereIn('id', $selectedServiceIds)
+->where('is_campaign_available', true)
+->isNotEmpty();
 
 $reportTypeByServiceName = [
 'WhatsApp Meta Ads Monthly Report' => 'whatsapp_meta_ads',
@@ -22,8 +29,8 @@ $reportTypeByServiceName = [
 ];
 $reportTypesByServiceId = $services->mapWithKeys(fn ($service) => [
 $service->id => $reportTypeByServiceName[$service->name]
-    ?? \App\Support\ReportServiceType::googleAdsTypeFromServiceName($service->name)
-    ?? '',
+?? \App\Support\ReportServiceType::googleAdsTypeFromServiceName($service->name)
+?? '',
 ]);
 $selectedReportTypes = collect($selectedServiceIds)
 ->map(fn ($serviceId) => $reportTypesByServiceId[$serviceId] ?? '')
@@ -85,6 +92,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                                     name="service_id[]"
                                     value="{{ $service->id }}"
                                     data-report-type="{{ $reportTypesByServiceId[$service->id] ?? '' }}"
+                                    data-campaign="{{ $service->is_campaign_available ? '1' : '0' }}"
                                     @checked(in_array((int) $service->id, $selectedServiceIds, true))>
                                 <span>{{ $service->name }}</span>
                             </label>
@@ -114,10 +122,11 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                     <label class="form-label">
                         Budget <span class="required-star" aria-hidden="true">*</span>
                     </label>
-                    <input type="number" name="budget" step="1" min="0"
+                    <input type="number" name="budget" id="budget" step="1" min="0"
                         class="form-control @error('budget') is-invalid @enderror"
                         value="{{ old('budget', $assignService?->budget ?? '') }}"
                         placeholder="e.g. 50000" required>
+                    <span class="field-error" id="budgetClientError" style="display:none;"></span>
                     @error('budget')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
@@ -142,6 +151,40 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                         value="{{ old('to_date', $assignService?->to_date?->format('Y-m-d') ?? '') }}"
                         required>
                     @error('to_date')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="col-md-6" id="campaignField" @if(! $showCampaigns) hidden @endif>
+                    <label class="form-label">Campaign(s)</label>
+                    <div class="multi-select" id="campaignMultiSelect">
+                        <button type="button" class="multi-select-trigger" id="campaignTrigger">
+                            <span id="campaignTriggerLabel">-- Select Campaign(s) --</span>
+                            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+                                <path d="M6 8l4 4 4-4" fill="none" stroke="currentColor"
+                                    stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <div class="multi-select-panel" id="campaignPanel">
+                            @forelse($campaigns as $campaign)
+                            <label class="multi-select-option campaign-option"
+                                data-types="{{ implode(' ', $campaign->types) }}"
+                                data-spend="{{ (float) $campaign->total_spend }}">
+                                <input type="checkbox" name="campaign_ids[]"
+                                    value="{{ $campaign->campaign_id }}"
+                                    @checked(in_array((string) $campaign->campaign_id, $selectedCampaignIds, true))
+                                @disabled(! $showCampaigns)>
+                                <span>{{ $campaign->campaign_name ?? $campaign->campaign_id }}</span>
+                            </label>
+                            @empty
+                            <div class="multi-select-empty">No campaigns saved yet. Submit today's data on the Meta page first.</div>
+                            @endforelse
+
+                            <div class="multi-select-empty" id="campaignNoMatch" style="display:none;">
+                                No campaigns match the selected service(s).
+                            </div>
+                        </div>
+                    </div>
+                    @error('campaign_ids')<span class="field-error">{{ $message }}</span>@enderror
+                    @error('campaign_ids.*')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
                 {{-- Platforms --}}
@@ -345,7 +388,40 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
             });
         }
 
+        function updateCampaignField() {
+            const field = document.getElementById('campaignField');
+            if (!field) return;
+
+            const campaignServices = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'))
+                .filter(input => input.dataset.campaign === '1');
+
+            const needed = campaignServices.length > 0;
+            const types = new Set(campaignServices.map(i => i.dataset.reportType).filter(Boolean));
+
+            field.hidden = !needed;
+
+            let visible = 0;
+            field.querySelectorAll('.campaign-option').forEach(opt => {
+                const cb = opt.querySelector('input');
+                const optTypes = (opt.dataset.types || '').split(' ').filter(Boolean);
+                const match = needed && optTypes.some(t => types.has(t));
+
+                opt.style.display = match ? '' : 'none';
+                cb.disabled = !match; // disabled inputs are not submitted
+                if (!match) cb.checked = false; // drop selections that no longer apply
+                if (match) visible++;
+            });
+
+            const none = document.getElementById('campaignNoMatch');
+            if (none) none.style.display = (needed && visible === 0) ? '' : 'none';
+
+            // Refresh the campaign trigger label
+            const campaignPanel = document.getElementById('campaignPanel');
+            if (campaignPanel) campaignPanel.dispatchEvent(new Event('change'));
+        }
+
         panel.addEventListener('change', updateNarrativeFields);
+        panel.addEventListener('change', updateCampaignField);
 
         document.addEventListener('click', (e) => {
             if (!panel.contains(e.target) && e.target !== trigger) {
@@ -355,6 +431,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
 
         refresh();
         updateNarrativeFields();
+        updateCampaignField();
     })();
 
     /* ---------- from_date / to_date sync ---------- */
@@ -379,6 +456,93 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
         fromDate.addEventListener('change', syncToDateMin);
         fromDate.addEventListener('input', syncToDateMin);
         syncToDateMin();
+    })();
+
+    /* ---------- Campaign multi-select ---------- */
+    (function() {
+        const trigger = document.getElementById('campaignTrigger');
+        const panel = document.getElementById('campaignPanel');
+        const label = document.getElementById('campaignTriggerLabel');
+        if (!trigger || !panel) return;
+
+        function refresh() {
+            const names = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(i => i.nextElementSibling.textContent.trim());
+            label.textContent = names.length ? names.join(', ') : '-- Select Campaign(s) --';
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.classList.toggle('is-open');
+        });
+        panel.addEventListener('change', refresh);
+        document.addEventListener('click', (e) => {
+            if (!panel.contains(e.target) && e.target !== trigger) panel.classList.remove('is-open');
+        });
+        refresh();
+    })();
+
+    (function() {
+        const budget = document.getElementById('budget');
+        const errorEl = document.getElementById('budgetClientError');
+        const campaignPanel = document.getElementById('campaignPanel');
+        const form = budget ? budget.closest('form') : null;
+        if (!budget || !errorEl || !form) return;
+
+        const money = n => Number(n).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        // Total spend of the campaigns currently selected (and enabled)
+        function spent() {
+            if (!campaignPanel) return 0;
+            let total = 0;
+            campaignPanel.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)').forEach(cb => {
+                total += parseFloat(cb.closest('.campaign-option')?.dataset.spend) || 0;
+            });
+            return total;
+        }
+
+        // Returns an error message, or '' when the budget is fine
+        function validate() {
+            const value = budget.value.trim();
+            if (value === '') return 'Budget is required.';
+
+            const spentTotal = spent();
+            if (spentTotal > 0 && parseFloat(value) < spentTotal) {
+                return 'Budget must be at least INR ' + money(spentTotal) +
+                    ' (the amount already spent on the selected campaigns). Please enter a proper budget.';
+            }
+            return '';
+        }
+
+        function show(message) {
+            errorEl.textContent = message;
+            errorEl.style.display = message ? '' : 'none';
+            budget.classList.toggle('is-invalid', !!message);
+        }
+
+        // Live check only for the spend rule, so an empty field isn't flagged while typing
+        function liveCheck() {
+            const message = validate();
+            show(message === 'Budget is required.' ? '' : message);
+        }
+
+        budget.addEventListener('input', liveCheck);
+        if (campaignPanel) campaignPanel.addEventListener('change', liveCheck);
+
+        // The form uses novalidate, so enforce it on submit
+        form.addEventListener('submit', function(e) {
+            const message = validate();
+            if (message) {
+                e.preventDefault();
+                show(message);
+                budget.focus();
+            }
+        });
+
+        liveCheck();
     })();
 </script>
 

@@ -8,6 +8,9 @@ use Illuminate\Support\Str;
 
 $fmt = fn ($v, $d = 2) => number_format((float) $v, $d);
 
+// Default filter = today
+$currentRange = $filters['range'] ?? 'today';
+
 $summary = $data['summary']['data'][0] ?? [];
 $currency = $summary['account_currency']
 ?? ($data['campaigns']['data'][0]['account_currency'] ?? '');
@@ -46,9 +49,6 @@ $campaigns = collect($data['campaigns']['data'] ?? [])
 $totalSpend = max(0.0001, (float) $campaigns->sum(fn ($c) => (float) ($c['spend'] ?? 0)));
 $cname = fn ($c) => Str::limit($c['campaign_name'] ?? $c['campaign_id'] ?? '-', 30);
 // ---- Extract "results" from Meta's actions array ----
-// Meta returns actions as [{action_type, value}, ...].
-// Different campaigns use different action_types, so we probe several
-// and pick the first one that exists — that's the campaign's "result".
 $resultsMap = [
 'lead' => 'Leads',
 'offsite_conversion.fb_pixel_lead' => 'Leads',
@@ -168,48 +168,52 @@ $sections = [
                 @endif
             </p>
         </div>
-        <!-- <div class="report-heading-actions">
-            <a href="{{ route('meta-catalog.connect') }}" class="button button-primary">Connect Facebook</a>
-        </div> -->
     </section>
 
     @if(isset($error) && $error)
     <div class="report-validation" role="alert">{{ $error }}</div>
     @endif
-    @if(session('error'))
-    <div class="report-validation" role="alert">{{ session('error') }}</div>
-    @endif
     @if($errors->any())
     <div class="report-validation" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    {{-- Filters + permission chips --}}
+    {{-- Filters --}}
     <section class="panel">
-        <div class="mx-toolbar">
-            <form method="GET" action="{{ route('meta-catalog.index') }}">
+        <div class="mx-toolbar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+
+            {{-- Filter form: auto-submits, no Refresh button --}}
+            <form method="GET" id="filterForm" action="{{ route('meta-catalog.index') }}">
                 <label>Date range
                     <select name="range" id="range">
                         @foreach($ranges as $key => $label)
-                        <option value="{{ $key }}" @selected($filters['range']===$key)>{{ $label }}</option>
+                        <option value="{{ $key }}" @selected($currentRange===$key)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </label>
                 <label class="custom-range">From
-                    <input type="date" name="since" value="{{ $filters['since'] ?? '' }}" max="{{ now()->toDateString() }}">
+                    <input type="date" name="since" id="since" value="{{ $filters['since'] ?? '' }}" max="{{ now()->toDateString() }}">
                 </label>
                 <label class="custom-range">To
-                    <input type="date" name="until" value="{{ $filters['until'] ?? '' }}" max="{{ now()->toDateString() }}">
+                    <input type="date" name="until" id="until" value="{{ $filters['until'] ?? '' }}" max="{{ now()->toDateString() }}">
                 </label>
-                <button type="submit" class="button button-primary">Refresh</button>
+                <noscript><button type="submit" class="button button-primary">Apply</button></noscript>
             </form>
 
-            <!-- @if($data)
-                <div class="mx-chips" style="margin:0;">
-                    @foreach($required as $perm)
-                        <span class="mx-chip {{ in_array($perm, $granted, true) ? 'ok' : 'bad' }}">{{ $perm }}</span>
-                    @endforeach
-                </div>
-            @endif -->
+            {{-- Save button: ONLY visible when the Today filter is active --}}
+            @if($currentRange === 'today' && $data && ! $alreadySaved)
+            <form method="POST" id="saveTodayForm" action="{{ route('meta-catalog.store-today') }}" style="margin-left:auto;">
+                @csrf
+                <button type="submit" class="button button-primary">Submit today's data</button>
+            </form>
+            @else
+            <div style="margin-left:auto; font-size:0.9em; color:#666;">
+                @if($currentRange === 'today' && $alreadySaved)
+                Today's data has already been submitted.
+                @else
+                Submit today's data is only available when the "Today" filter is selected.
+                @endif
+            </div>
+            @endif
         </div>
     </section>
 
@@ -516,33 +520,33 @@ $sections = [
                 </tbody>
             </table>
         </div>
-        @endif
-    </section>
 
-    {{-- Raw API responses --}}
-    <!-- <section class="panel" style="margin-top:14px;">
-        <div class="panel-heading">
-            <div>
-                <h2>API responses</h2>
-                <p>Full Meta Graph API output. Failed requests open automatically.</p>
+        {{-- Raw API responses --}}
+        <!-- <section class="panel" style="margin-top:14px;">
+            <div class="panel-heading">
+                <div>
+                    <h2>API responses</h2>
+                    <p>Full Meta Graph API output. Failed requests open automatically.</p>
+                </div>
             </div>
-        </div>
 
-        @foreach($sections as $label => $key)
-        <details class="mx-detail" @if(! $data[$key]['ok']) open @endif>
-            <summary>
-                {{ $label }}
-                @if($data[$key]['raw'])
-                <small>GET {{ $data[$key]['raw']['endpoint'] }} (HTTP {{ $data[$key]['raw']['status'] }})</small>
-                @endif
-            </summary>
-            <pre class="mx-json">{{ json_encode(
+            @foreach($sections as $label => $key)
+            <details class="mx-detail" @if(! $data[$key]['ok']) open @endif>
+                <summary>
+                    {{ $label }}
+                    @if($data[$key]['raw'])
+                    <small>GET {{ $data[$key]['raw']['endpoint'] }} (HTTP {{ $data[$key]['raw']['status'] }})</small>
+                    @endif
+                </summary>
+                <pre class="mx-json">{{ json_encode(
                     $data[$key]['raw']['body'] ?? ['error' => $data[$key]['error']],
                     JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR
                 ) }}</pre>
-        </details>
-        @endforeach
-    </section> -->
+            </details>
+            @endforeach
+        </section> -->
+        @endif
+    </section>
 
     @endif
 </div>
@@ -594,7 +598,6 @@ $sections = [
             },
         });
 
-        // Dropdown -> filter rows by the result label stored on the cell
         const selected = () => $('#resultFilter').val();
 
         $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
@@ -607,7 +610,6 @@ $sections = [
 
         $('#resultFilter').on('change', () => dt.draw());
 
-        // Summary line recalculates for the filtered rows
         const money = (n) => Number(n).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -839,23 +841,102 @@ $sections = [
 
         hbar('chartTop', @json($barLabels), @json($barValues), ORANGE,
             v => currency + ' ' + nf(v));
-        hbar('chartCtr', @json($ctrRows->pluck('name')->all()), @json($ctrRows->pluck('ctr')->all()), BLUE,
+        hbar('chartCtr', @json($ctrRows -> pluck('name') -> all()), @json($ctrRows -> pluck('ctr') -> all()), BLUE,
             v => nf(v) + '%');
+    })();
+
+    (function() {
+        const form = document.getElementById('filterForm');
+        const select = document.getElementById('range');
+        const since = document.getElementById('since');
+        const until = document.getElementById('until');
+        if (!form || !select) return;
+
+        const toggle = () => {
+            const isCustom = select.value === 'custom';
+            document.querySelectorAll('.custom-range').forEach(
+                el => el.style.display = isCustom ? '' : 'none'
+            );
+            since.disabled = !isCustom;
+            until.disabled = !isCustom;
+        };
+
+        const submitIfReady = () => {
+            if (select.value === 'custom') {
+                if (since.value && until.value) form.submit();
+            } else {
+                form.submit();
+            }
+        };
+
+        select.addEventListener('change', () => {
+            toggle();
+            submitIfReady();
+        });
+        since.addEventListener('change', submitIfReady);
+        until.addEventListener('change', submitIfReady);
+
+        toggle();
+    })();
+
+    // SweetAlert: confirm before save + show result after save.
+    (function() {
+        // 1) Confirm before saving
+        const saveForm = document.getElementById('saveTodayForm');
+        if (saveForm) {
+            saveForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save today\'s data?',
+                    text: 'Today\'s Meta ads data will be saved. If it was already saved today, it will be updated.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#f7921e',
+                    cancelButtonColor: '#6f7c96',
+                    reverseButtons: true,
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
+
+                    // Loading state while the request runs
+                    Swal.fire({
+                        title: 'Saving...',
+                        text: 'Fetching data from Meta and saving it.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading(),
+                    });
+
+                    saveForm.submit(); // native submit, does not re-trigger this handler
+                });
+            });
+        }
+
+        // 2) Show the result after the redirect
+        const successMsg = @json(session('success'));
+        const errorMsg = @json(session('error'));
+
+        if (successMsg) {
+            Swal.fire({
+                title: 'Saved!',
+                text: successMsg,
+                icon: 'success',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#f7921e',
+            });
+        } else if (errorMsg) {
+            Swal.fire({
+                title: 'Could not save',
+                text: errorMsg,
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#f7921e',
+            });
+        }
     })();
 </script>
 @endif
-
-<script>
-    // Show the From/To inputs only for "Custom range".
-    (function() {
-        const select = document.getElementById('range');
-        if (!select) return;
-        const toggle = () => document.querySelectorAll('.custom-range').forEach(
-            el => el.style.display = select.value === 'custom' ? '' : 'none'
-        );
-        select.addEventListener('change', toggle);
-        toggle();
-    })();
-</script>
 
 @include('admin.partials.footer')
