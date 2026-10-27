@@ -175,7 +175,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                                 <span>{{ $campaign->campaign_name ?? $campaign->campaign_id }}</span>
                             </label>
                             @empty
-                            <div class="multi-select-empty">No campaigns saved yet. Submit today's data on the Meta page first.</div>
+                            <div class="multi-select-empty">No Meta Ads campaign data is available yet.</div>
                             @endforelse
 
                             <div class="multi-select-empty" id="campaignNoMatch" style="display:none;">

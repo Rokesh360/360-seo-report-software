@@ -37,6 +37,7 @@ return [
 
     'meta' => [
         'graph_api_version' => env('META_GRAPH_API_VERSION', 'v21.0'),
+        'daily_sync_time'   => env('META_ADS_SYNC_TIME', '14:33'),
         'business_id'       => env('META_BUSINESS_ID'),
         'ad_account_id'     => env('META_AD_ACCOUNT_ID'),
         'catalog_id'        => env('META_CATALOG_ID'),
@@ -47,4 +48,8 @@ return [
         'scopes'            => ['ads_read', 'business_management', 'catalog_management'],
     ],
 
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model'   => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+    ],
 ];

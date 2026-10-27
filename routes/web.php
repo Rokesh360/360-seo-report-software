@@ -40,9 +40,9 @@ Route::middleware('auth')->group(function () {
     // Route::view('/dashboard', 'admin.dashboard')->name('dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
-    Route::get('/meta-catalog', ['App\\Http\\Controllers\\MetaCatalogController', 'index'])->name('meta-catalog.index');
-    Route::get('/meta-catalog/connect', ['App\\Http\\Controllers\\MetaCatalogController', 'connect'])->name('meta-catalog.connect');
-    Route::get('/meta-catalog/callback', ['App\\Http\\Controllers\\MetaCatalogController', 'callback'])->name('meta-catalog.callback');
+    Route::get('/meta-catalog', [MetaCatalogController::class, 'index'])->name('meta-catalog.index');
+    Route::get('/meta-catalog/connect', [MetaCatalogController::class, 'connect'])->name('meta-catalog.connect');
+    Route::get('/meta-catalog/callback', [MetaCatalogController::class, 'callback'])->name('meta-catalog.callback');
 
     Route::get('/google-ads', [GoogleAdsReportController::class, 'index'])->name('google-ads.index');
     Route::get('/google-ads/clients/{client}', [GoogleAdsReportController::class, 'clientServices'])
@@ -68,8 +68,6 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('googleAdsReport')
         ->name('google-ads-reports.pdf');
 
-    Route::post('/meta-catalog/store-today', [MetaCatalogController::class, 'storeToday'])->name('meta-catalog.store-today');
-
     /* ============================================================
      |  SEO Reports
      ============================================================ */
@@ -84,6 +82,8 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('id')
             ->name('pdf');
     });
+
+    Route::post('/meta-catalog/ai-report', [MetaCatalogController::class, 'aiReport'])->name('meta-catalog.ai-report');
 
     /* ============================================================
      |  Clients

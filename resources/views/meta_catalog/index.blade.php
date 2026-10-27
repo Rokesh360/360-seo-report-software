@@ -170,6 +170,16 @@ $sections = [
         </div>
     </section>
 
+    <!-- <section class="panel" role="status" style="margin-bottom:14px;">
+        <strong>Automatic daily save: {{ config('services.meta.daily_sync_time', '23:55') }}
+            ({{ config('app.timezone', 'Asia/Kolkata') }})</strong>
+        <p style="margin:6px 0 0;">
+            At this time, today's campaign data is saved: campaign name and ID, spend, impressions,
+            clicks, reach, CTR, CPC, CPM, leads, messaging conversations, currency, and action details.
+            The saved data for today is replaced with the latest results.
+        </p>
+    </section> -->
+
     @if(isset($error) && $error)
     <div class="report-validation" role="alert">{{ $error }}</div>
     @endif
@@ -199,21 +209,21 @@ $sections = [
                 <noscript><button type="submit" class="button button-primary">Apply</button></noscript>
             </form>
 
-            {{-- Save button: ONLY visible when the Today filter is active --}}
-            @if($currentRange === 'today' && $data && ! $alreadySaved)
-            <form method="POST" id="saveTodayForm" action="{{ route('meta-catalog.store-today') }}" style="margin-left:auto;">
+            <form method="POST" id="aiReportForm" action="{{ route('meta-catalog.ai-report') }}">
                 @csrf
-                <button type="submit" class="button button-primary">Submit today's data</button>
+                <input type="hidden" name="range" id="aiReportRange">
+                <input type="hidden" name="since" id="aiReportSince">
+                <input type="hidden" name="until" id="aiReportUntil">
+                <button type="submit" class="button button-primary">Generate AI report PDF</button>
             </form>
-            @else
-            <div style="margin-left:auto; font-size:0.9em; color:#666;">
-                @if($currentRange === 'today' && $alreadySaved)
-                Today's data has already been submitted.
-                @else
-                Submit today's data is only available when the "Today" filter is selected.
-                @endif
-            </div>
-            @endif
+
+            <strong>Automatic daily save at {{ \Carbon\Carbon::parse(config('services.meta.daily_sync_time', '23:55'))->format('h:i A') }}</strong>
+            <!-- <p style="margin:6px 0 0;">
+                At this time, today's campaign data is saved: campaign name and ID, spend, impressions,
+                clicks, reach, CTR, CPC, CPM, leads, messaging conversations, currency, and action details.
+                The saved data for today is replaced with the latest results.
+            </p> -->
+
         </div>
     </section>
 
@@ -879,56 +889,13 @@ $sections = [
         toggle();
     })();
 
-    // SweetAlert: confirm before save + show result after save.
+    // Show connection errors returned from the Meta OAuth callback.
     (function() {
-        // 1) Confirm before saving
-        const saveForm = document.getElementById('saveTodayForm');
-        if (saveForm) {
-            saveForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Save today\'s data?',
-                    text: 'Today\'s Meta ads data will be saved. If it was already saved today, it will be updated.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, save it',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#f7921e',
-                    cancelButtonColor: '#6f7c96',
-                    reverseButtons: true,
-                }).then((result) => {
-                    if (!result.isConfirmed) return;
-
-                    // Loading state while the request runs
-                    Swal.fire({
-                        title: 'Saving...',
-                        text: 'Fetching data from Meta and saving it.',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => Swal.showLoading(),
-                    });
-
-                    saveForm.submit(); // native submit, does not re-trigger this handler
-                });
-            });
-        }
-
-        // 2) Show the result after the redirect
-        const successMsg = @json(session('success'));
         const errorMsg = @json(session('error'));
 
-        if (successMsg) {
+        if (errorMsg) {
             Swal.fire({
-                title: 'Saved!',
-                text: successMsg,
-                icon: 'success',
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#f7921e',
-            });
-        } else if (errorMsg) {
-            Swal.fire({
-                title: 'Could not save',
+                title: 'Meta connection error',
                 text: errorMsg,
                 icon: 'error',
                 confirmButtonText: 'OK',
@@ -936,7 +903,24 @@ $sections = [
             });
         }
     })();
+
 </script>
 @endif
+
+<script>
+    const aiReportForm = document.getElementById('aiReportForm');
+    if (aiReportForm) {
+        aiReportForm.addEventListener('submit', function() {
+            const range = document.getElementById('range').value;
+            this.querySelector('#aiReportRange').value = range;
+            this.querySelector('#aiReportSince').value = range === 'custom'
+                ? document.getElementById('since').value
+                : '';
+            this.querySelector('#aiReportUntil').value = range === 'custom'
+                ? document.getElementById('until').value
+                : '';
+        });
+    }
+</script>
 
 @include('admin.partials.footer')

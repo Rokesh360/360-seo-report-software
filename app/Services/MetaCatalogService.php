@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
+use App\Models\MetaAdsDailyStat;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
@@ -27,10 +29,19 @@ class MetaCatalogService
 
         $token = config('services.meta.access_token');
 
-        if (! is_string($token) || trim($token) === '') {
-            throw new InvalidArgumentException(
-                'No token. Click "Connect Facebook" or set META_ACCESS_TOKEN in .env.'
-            );
+        $version = config('services.meta.graph_api_version');
+        $accessToken = config('services.meta.access_token');
+
+        if (! is_string($version) || ! preg_match('/^v\d+(?:\.\d+)?$/D', $version)) {
+            throw new InvalidArgumentException('Invalid Meta Graph API version. Configure META_GRAPH_API_VERSION.');
+        }
+
+        if (! str_contains($version, '.')) {
+            $version .= '.0';
+        }
+
+        if (! is_string($accessToken) || trim($accessToken) === '') {
+            throw new InvalidArgumentException('Configure META_ACCESS_TOKEN in your .env file.');
         }
 
         return trim($token);
@@ -331,6 +342,84 @@ class MetaCatalogService
                 ] + $time
             )),
         ];
+    }
+
+    public function storeToday(): int
+    {
+        $today = now()->toDateString();
+        $data = $this->dashboard([
+            'range' => 'custom',
+            'since' => $today,
+            'until' => $today,
+        ]);
+
+        if (! ($data['campaigns']['ok'] ?? false)) {
+            throw new RuntimeException(
+                $data['campaigns']['error'] ?? 'Could not fetch campaign data from Meta.'
+            );
+        }
+
+        $campaignRows = $data['campaigns']['data']['data'] ?? $data['campaigns']['data'] ?? [];
+        $campaigns = collect($campaignRows);
+
+        if ($campaigns->isEmpty()) {
+            throw new RuntimeException("No campaign data found for {$today}.");
+        }
+
+        $hasInvalidCampaign = $campaigns->contains(
+            fn($campaign) => ! is_array($campaign)
+                || empty($campaign['campaign_id'])
+                || ! isset($campaign['spend'])
+                || ! is_numeric($campaign['spend'])
+        );
+
+        if ($hasInvalidCampaign) {
+            throw new RuntimeException(
+                'Meta returned incomplete campaign data. No data was saved; please try again.'
+            );
+        }
+
+        if ($campaigns->pluck('campaign_id')->unique()->count() !== $campaigns->count()) {
+            throw new RuntimeException(
+                'Meta returned duplicate campaign rows. No data was saved; please try again.'
+            );
+        }
+
+        $action = function (array $campaign, array $types): int {
+            $actions = collect($campaign['actions'] ?? [])->keyBy('action_type');
+            foreach ($types as $type) {
+                if ($actions->has($type)) {
+                    return (int) $actions[$type]['value'];
+                }
+            }
+
+            return 0;
+        };
+
+        DB::transaction(function () use ($campaigns, $today, $action): void {
+            MetaAdsDailyStat::whereDate('report_date', $today)->delete();
+
+            foreach ($campaigns as $campaign) {
+                MetaAdsDailyStat::create([
+                    'report_date'             => $today,
+                    'campaign_id'             => $campaign['campaign_id'],
+                    'campaign_name'           => $campaign['campaign_name'] ?? null,
+                    'spend'                   => $campaign['spend'],
+                    'impressions'             => (int) ($campaign['impressions'] ?? 0),
+                    'clicks'                  => (int) ($campaign['clicks'] ?? 0),
+                    'reach'                   => (int) ($campaign['reach'] ?? 0),
+                    'ctr'                     => $campaign['ctr'] ?? 0,
+                    'cpc'                     => $campaign['cpc'] ?? 0,
+                    'cpm'                     => $campaign['cpm'] ?? 0,
+                    'leads'                   => $action($campaign, ['lead', 'onsite_conversion.lead_grouped']),
+                    'messaging_conversations' => $action($campaign, ['onsite_conversion.messaging_conversation_started_7d']),
+                    'currency'                => $campaign['account_currency'] ?? null,
+                    'actions'                 => $campaign['actions'] ?? [],
+                ]);
+            }
+        });
+
+        return $campaigns->count();
     }
 
     /** Run one request and normalise success/error so the view stays simple. */
