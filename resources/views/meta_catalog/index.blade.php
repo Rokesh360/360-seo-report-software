@@ -209,12 +209,12 @@ $sections = [
                 <noscript><button type="submit" class="button button-primary">Apply</button></noscript>
             </form>
 
-            <form method="POST" id="aiReportForm" action="{{ route('meta-catalog.ai-report') }}">
+            <form method="POST" id="exportPdfForm" class="range-sync-form" action="{{ route('meta-catalog.export-pdf') }}">
                 @csrf
-                <input type="hidden" name="range" id="aiReportRange">
-                <input type="hidden" name="since" id="aiReportSince">
-                <input type="hidden" name="until" id="aiReportUntil">
-                <button type="submit" class="button button-primary">Generate AI report PDF</button>
+                <input type="hidden" name="range" class="sync-range">
+                <input type="hidden" name="since" class="sync-since">
+                <input type="hidden" name="until" class="sync-until">
+                <button type="submit" class="button button-secondary">Generate PDF Report</button>
             </form>
 
             <strong>Automatic daily save at {{ \Carbon\Carbon::parse(config('services.meta.daily_sync_time', '23:55'))->format('h:i A') }}</strong>
@@ -904,23 +904,16 @@ $sections = [
         }
     })();
 
+    document.querySelectorAll('.range-sync-form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            const range = document.getElementById('range').value;
+            const isCustom = range === 'custom';
+            form.querySelector('.sync-range').value = range;
+            form.querySelector('.sync-since').value = isCustom ? document.getElementById('since').value : '';
+            form.querySelector('.sync-until').value = isCustom ? document.getElementById('until').value : '';
+        });
+    });
 </script>
 @endif
-
-<script>
-    const aiReportForm = document.getElementById('aiReportForm');
-    if (aiReportForm) {
-        aiReportForm.addEventListener('submit', function() {
-            const range = document.getElementById('range').value;
-            this.querySelector('#aiReportRange').value = range;
-            this.querySelector('#aiReportSince').value = range === 'custom'
-                ? document.getElementById('since').value
-                : '';
-            this.querySelector('#aiReportUntil').value = range === 'custom'
-                ? document.getElementById('until').value
-                : '';
-        });
-    }
-</script>
 
 @include('admin.partials.footer')

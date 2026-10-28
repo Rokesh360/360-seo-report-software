@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MetaAdsDailyStat;
+use App\Support\MetaAdsReportHelper;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -17,8 +17,8 @@ class MetaAdsReportService
         $prevTo   = $from->copy()->subDay();
         $prevFrom = $prevTo->copy()->subDays($days - 1);
 
-        $current  = $this->summarise($from, $to);
-        $previous = $this->summarise($prevFrom, $prevTo);
+        $current  = MetaAdsReportHelper::summarise($from, $to);
+        $previous = MetaAdsReportHelper::summarise($prevFrom, $prevTo);
 
         return [
             'currency'          => $current['currency'],
@@ -36,67 +36,12 @@ class MetaAdsReportService
         return $payload['days_with_data'] > 0;
     }
 
-    private function summarise(Carbon $from, Carbon $to): array
-    {
-        $rows = MetaAdsDailyStat::whereBetween('report_date', [$from->toDateString(), $to->toDateString()])->get();
-
-        $campaigns = $rows->groupBy('campaign_id')->map(function ($g) {
-            $t = $this->totals($g);
-            // Latest saved name wins
-            $t['name'] = $g->sortByDesc('report_date')->first()->campaign_name;
-            $t['type'] = $this->guessType($t);
-            return $t;
-        })->sortByDesc('spend')->values()->all();
-
-        $daily = $rows->groupBy(fn ($r) => $r->report_date->toDateString())
-            ->map(fn ($g, $date) => ['date' => $date] + $this->totals($g))
-            ->sortKeys()->values()->all();
-
-        return [
-            'currency'       => $rows->first()->currency ?? 'INR',
-            'days_with_data' => count($daily),
-            'totals'         => $this->totals($rows),
-            'campaigns'      => $campaigns,
-            'daily'          => $daily,
-        ];
-    }
-
-    private function totals($rows): array
-    {
-        $spend = round((float) $rows->sum('spend'), 2);
-        $impr  = (int) $rows->sum('impressions');
-        $click = (int) $rows->sum('clicks');
-        $leads = (int) $rows->sum('leads');
-        $msgs  = (int) $rows->sum('messaging_conversations');
-
-        return [
-            'spend'                    => $spend,
-            'impressions'              => $impr,
-            'clicks'                   => $click,
-            'leads'                    => $leads,
-            'messaging_conversations'  => $msgs,
-            'ctr_percent'              => $impr ? round($click / $impr * 100, 2) : null,
-            'cpc'                      => $click ? round($spend / $click, 2) : null,
-            'cpm'                      => $impr ? round($spend / $impr * 1000, 2) : null,
-            'cost_per_lead'            => $leads ? round($spend / $leads, 2) : null,
-            'cost_per_conversation'    => $msgs ? round($spend / $msgs, 2) : null,
-            // Reach is deliberately not summed: it counts unique people, so adding days overstates it.
-        ];
-    }
-
-    private function guessType(array $t): string
-    {
-        if ($t['leads'] > 0) return 'lead generation';
-        if ($t['messaging_conversations'] > 0) return 'messaging / WhatsApp';
-        return 'awareness / engagement';
-    }
-
-    /** Send the numbers to Gemini and return the report as markdown. */
+    /** Send the numbers to Grok and return the report as markdown. */
     public function generate(array $payload): string
     {
-        $key = config('services.gemini.api_key');
+        $key = config('services.grok.api_key');
         if (! is_string($key) || trim($key) === '') {
-            throw new RuntimeException('Set GEMINI_API_KEY in your .env file to enable AI reports.');
+            throw new RuntimeException('Set GROK_API_KEY in your .env file to enable AI reports.');
         }
 
         $system = <<<TXT
@@ -122,43 +67,31 @@ TXT;
 
         try {
             $res = Http::acceptJson()
-                ->withHeaders(['x-goog-api-key' => trim($key)])
+                ->withToken(trim($key))
                 ->timeout(90)
-                ->post(
-                    'https://generativelanguage.googleapis.com/v1beta/models/'
-                        . rawurlencode(config('services.gemini.model', 'gemini-2.5-flash'))
-                        . ':generateContent',
-                    [
-                        'systemInstruction' => [
-                            'parts' => [['text' => $system]],
-                        ],
-                        'contents' => [[
-                            'role'  => 'user',
-                            'parts' => [['text' => $user]],
-                        ]],
-                        'generationConfig' => [
-                            'temperature'     => 0.3,
-                            'maxOutputTokens' => 2000,
-                        ],
-                    ]
-                );
+                ->post('https://api.x.ai/v1/chat/completions', [
+                    'model' => config('services.grok.model', 'grok-3-mini'),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => $user],
+                    ],
+                    'temperature' => 0.3,
+                    'max_tokens' => 2000,
+                ]);
         } catch (ConnectionException $e) {
-            throw new RuntimeException('Could not connect to Google Gemini. Please try again.', previous: $e);
+            throw new RuntimeException('Could not connect to Grok. Please try again.', previous: $e);
         }
 
         if (! $res->successful()) {
             throw new RuntimeException(
-                $res->json('error.message') ?? 'The Gemini request failed (HTTP ' . $res->status() . ').'
+                $res->json('error.message') ?? 'The Grok request failed (HTTP ' . $res->status() . ').'
             );
         }
 
-        $text = collect($res->json('candidates.0.content.parts', []))
-            ->pluck('text')
-            ->filter(fn ($part) => is_string($part))
-            ->implode("\n");
+        $text = $res->json('choices.0.message.content');
 
-        if (trim($text) === '') {
-            throw new RuntimeException('Gemini returned an empty report. Please try again.');
+        if (! is_string($text) || trim($text) === '') {
+            throw new RuntimeException('Grok returned an empty report. Please try again.');
         }
 
         return trim($text);

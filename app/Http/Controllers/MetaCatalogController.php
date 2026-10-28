@@ -83,53 +83,103 @@ class MetaCatalogController extends Controller
         return redirect()->route('meta-catalog.index');
     }
 
-    public function aiReport(Request $request, MetaAdsReportService $reports)
+    public function exportPdf(Request $request, MetaCatalogService $service)
     {
         $ranges = ['today' => 'Today'] + MetaCatalogService::RANGES;
-        $data = $request->validate([
+
+        $filters = $request->validate([
             'range' => ['required', 'in:' . implode(',', array_keys($ranges))],
             'since' => ['nullable', 'required_if:range,custom', 'date_format:Y-m-d', 'before_or_equal:today'],
             'until' => ['nullable', 'required_if:range,custom', 'date_format:Y-m-d', 'after_or_equal:since', 'before_or_equal:today'],
         ]);
 
-        $today = Carbon::today();
-
-        [$from, $to] = match ($data['range']) {
-            'today'      => [$today->copy(), $today->copy()],
-            'yesterday'  => [$today->copy()->subDay(), $today->copy()->subDay()],
-            'last_7d'    => [$today->copy()->subDays(6), $today->copy()],
-            'last_14d'   => [$today->copy()->subDays(13), $today->copy()],
-            'last_30d'   => [$today->copy()->subDays(29), $today->copy()],
-            'this_month' => [$today->copy()->startOfMonth(), $today->copy()],
-            'last_month' => [
-                $today->copy()->subMonthNoOverflow()->startOfMonth(),
-                $today->copy()->subMonthNoOverflow()->endOfMonth(),
-            ],
-            'custom' => [
-                Carbon::createFromFormat('Y-m-d', $data['since']),
-                Carbon::createFromFormat('Y-m-d', $data['until']),
-            ],
-        };
-
-        $payload = $reports->buildPayload($from, $to);
-
-        if (! $reports->hasData($payload)) {
-            return back()->withInput()->withErrors([
-                'from' => 'No saved Meta Ads data exists for the selected date range.',
-            ]);
+        // "Today" is sent to the service as a one-day custom range (same as index())
+        $serviceFilters = $filters;
+        if ($filters['range'] === 'today') {
+            $serviceFilters = [
+                'range' => 'custom',
+                'since' => now()->toDateString(),
+                'until' => now()->toDateString(),
+            ];
         }
 
         try {
-            $report = $reports->generate($payload);
-        } catch (\RuntimeException $e) {
-            return back()->withInput()->withErrors(['from' => $e->getMessage()]);
+            $data = $service->dashboard($serviceFilters);
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['range' => $e->getMessage()]);
         }
 
-        return Pdf::loadView('meta_catalog.ai_report_pdf', [
-            'payload' => $payload,
-            'report'  => $report,
+        $summary  = $data['summary']['data'][0] ?? [];
+        $currency = $summary['account_currency']
+            ?? ($data['campaigns']['data'][0]['account_currency'] ?? '');
+
+        $campaigns = collect($data['campaigns']['data'] ?? [])
+            ->filter(fn($c) => is_array($c))
+            ->sortByDesc(fn($c) => (float) ($c['spend'] ?? 0))
+            ->values()
+            ->map(function ($c) {
+                $c['_result'] = $this->primaryResult($c);
+                return $c;
+            });
+
+        $daily = collect($data['daily']['data'] ?? [])
+            ->filter(fn($d) => is_array($d) && isset($d['date_start']))
+            ->sortBy('date_start')
+            ->values();
+
+        $label = $ranges[$filters['range']];
+        $periodText = $filters['range'] === 'custom'
+            ? Carbon::parse($filters['since'])->format('d M Y') . ' — ' . Carbon::parse($filters['until'])->format('d M Y')
+            : (isset($summary['date_start'])
+                ? Carbon::parse($summary['date_start'])->format('d M Y') . ' — ' . Carbon::parse($summary['date_stop'] ?? $summary['date_start'])->format('d M Y')
+                : $label);
+
+        $fileSuffix = $filters['range'] === 'custom'
+            ? "{$filters['since']}-to-{$filters['until']}"
+            : $filters['range'] . '-' . now()->toDateString();
+
+        return Pdf::loadView('meta_catalog.export_pdf', [
+            'summary'    => $summary,
+            'currency'   => $currency,
+            'campaigns'  => $campaigns,
+            'daily'      => $daily,
+            'rangeLabel' => $label,
+            'periodText' => $periodText,
         ])
             ->setPaper('a4', 'portrait')
-            ->download("meta-ads-ai-report-{$from->toDateString()}-to-{$to->toDateString()}.pdf");
+            ->download("meta-ads-report-{$fileSuffix}.pdf");
+    }
+
+    /** Pull the primary result out of Meta's actions array (same logic as the dashboard). */
+    private function primaryResult(array $c): ?array
+    {
+        $map = [
+            'lead' => 'Leads',
+            'offsite_conversion.fb_pixel_lead' => 'Leads',
+            'onsite_conversion.lead_grouped' => 'Leads',
+            'offsite_complete_registration_add_meta_leads' => 'Registrations',
+            'offsite_search_add_meta_leads' => 'Searches',
+            'offsite_content_view_add_meta_leads' => 'Content views',
+            'purchase' => 'Purchases',
+            'offsite_conversion.fb_pixel_purchase' => 'Purchases',
+            'add_to_cart' => 'Add to cart',
+            'initiate_checkout' => 'Checkouts',
+            'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations',
+            'link_click' => 'Link clicks',
+            'post_engagement' => 'Post engagement',
+            'video_view' => 'Video views',
+        ];
+
+        $actions = collect($c['actions'] ?? [])
+            ->filter(fn($a) => isset($a['action_type'], $a['value']))
+            ->keyBy('action_type');
+
+        foreach ($map as $type => $label) {
+            if ($actions->has($type)) {
+                return ['label' => $label, 'value' => (float) $actions[$type]['value']];
+            }
+        }
+
+        return null;
     }
 }

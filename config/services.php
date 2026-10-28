@@ -47,9 +47,4 @@ return [
         'redirect_uri'      => env('META_REDIRECT_URI'),
         'scopes'            => ['ads_read', 'business_management', 'catalog_management'],
     ],
-
-    'gemini' => [
-        'api_key' => env('GEMINI_API_KEY'),
-        'model'   => env('GEMINI_MODEL', 'gemini-2.5-flash'),
-    ],
 ];

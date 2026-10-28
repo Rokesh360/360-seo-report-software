@@ -83,7 +83,8 @@ Route::middleware('auth')->group(function () {
             ->name('pdf');
     });
 
-    Route::post('/meta-catalog/ai-report', [MetaCatalogController::class, 'aiReport'])->name('meta-catalog.ai-report');
+    Route::post('/meta-catalog/export-pdf', [MetaCatalogController::class, 'exportPdf'])
+    ->name('meta-catalog.export-pdf');
 
     /* ============================================================
      |  Clients
