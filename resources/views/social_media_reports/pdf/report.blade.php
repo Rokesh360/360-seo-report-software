@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>{{ $single ? 'Social Media Report' : 'All Social Media Reports' }}</title>
     <style>
+        /* Page setup */
+        @page { margin: 110px 50px 90px 50px; }
+
         * { box-sizing: border-box; }
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
@@ -12,25 +15,30 @@
             margin: 0;
             line-height: 1.45;
         }
-        .page { padding: 28px 32px; }
+        .page { padding: 0; }
 
-        /* Cover (multi-report only) */
-        .cover { text-align: center; padding-top: 140px; }
-        .cover h1 { font-size: 28px; margin-bottom: 8px; color: #111827; }
-        .cover p  { color: #6b7280; margin: 4px 0; }
-        .cover .filters {
-            display: inline-block;
-            margin-top: 30px;
-            text-align: left;
-            border: 1px solid #e5e7eb;
-            padding: 14px 20px;
-            border-radius: 6px;
-            background: #f9fafb;
-            font-size: 11px;
+        /* Site header (repeats on every page) */
+        header {
+            position: fixed;
+            top: -95px;
+            left: 0;
+            right: 0;
+            height: 70px;
+            border-bottom: 2px solid #1f4e9c;
         }
-        .cover .filters strong { color: #111827; }
+        .header-table { width: 100%; border-collapse: collapse; }
+        .header-table td { vertical-align: middle; padding: 0 0 6px; border: none; }
+        .header-logo { width: 90px; }
+        .header-logo img { height: 55px; display: block; }
+        .header-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #1f4e9c;
+            padding-right: 90px;
+        }
 
-        /* Header */
+        /* Report title block */
         .pdf-header {
             border-bottom: 3px solid #111827;
             padding-bottom: 12px;
@@ -146,16 +154,17 @@
         }
         .text-block .tb-value { color: #1f2937; white-space: pre-wrap; }
 
-        /* Footer */
+        /* Footer (repeats on every page) */
         .pdf-footer {
             position: fixed;
-            bottom: -10px;
+            bottom: -70px;
             left: 0;
             right: 0;
             text-align: center;
-            font-size: 9px;
-            color: #9ca3af;
-            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #64748b;
+            border-top: 1px solid #d1d5db;
             padding-top: 6px;
         }
         .page-break { page-break-after: always; }
@@ -163,39 +172,20 @@
 </head>
 <body>
 
-{{-- ============================================================
-     COVER PAGE — only when exporting multiple reports
-     ============================================================ --}}
-@if(!$single)
-    <div class="page cover page-break">
-        <h1>Social Media Reports</h1>
-        <p>Combined Export</p>
-        <p>{{ now()->format('d M Y, H:i') }}</p>
+<header>
+    <table class="header-table">
+        <tr>
+            <td class="header-logo">
+                <img src="{{ public_path('assets/360degreeinfo.webp') }}" alt="360 Info">
+            </td>
+            <td class="header-title">360 Degree info Pvt Ltd</td>
+        </tr>
+    </table>
+</header>
 
-        @if(!empty(array_filter($filters ?? [])))
-            <div class="filters">
-                <strong>Filters applied:</strong><br>
-                @if(!empty($filters['report_type']))
-                    Report Type: {{ ucwords(str_replace('_', ' ', $filters['report_type'])) }}<br>
-                @endif
-                @if(!empty($filters['client_name']))
-                    Client: {{ $filters['client_name'] }}<br>
-                @endif
-                @if(!empty($filters['from']))
-                    From: {{ $filters['from'] }}<br>
-                @endif
-                @if(!empty($filters['to']))
-                    To: {{ $filters['to'] }}<br>
-                @endif
-            </div>
-        @endif
-
-        <p style="margin-top:30px; color:#374151;">
-            <strong>{{ $reports->count() }}</strong>
-            {{ \Illuminate\Support\Str::plural('report', $reports->count()) }} included
-        </p>
-    </div>
-@endif
+<div class="pdf-footer">
+    &copy; {{ now()->format('Y') }} 360 Degree Info Pvt Ltd. All rights reserved.
+</div>
 
 {{-- ============================================================
      TREND LINE CHART — combined export only (PNG via GD)
@@ -241,10 +231,10 @@
         $isEngagement    = !$isAll && in_array('social_media_engagement', $selectedTypes, true);
 
         $showWhatsApp    = $legacyAll
-            ? !is_null($report->total_conversations) || !is_null($report->total_enquiries) || !is_null($report->whatsapp_clicks)
+            ? !is_null($report->total_conversations) || !is_null($report->whatsapp_clicks)
             : in_array('whatsapp_meta_ads', $selectedTypes, true);
         $showLeadGen     = $legacyAll
-            ? !is_null($report->total_leads) || !is_null($report->form_submissions) || !is_null($report->link_clicks)
+            ? !is_null($report->total_leads) || !is_null($report->link_clicks)
             : in_array('lead_generation_ads', $selectedTypes, true);
         $showEngagement  = $legacyAll
             ? !is_null($report->total_engagement) || !is_null($report->reactions) || !is_null($report->comments)
@@ -281,15 +271,17 @@
         if ($showWhatsApp) {
             $graphMetrics += [
                 'Conversations' => (int) $report->total_conversations,
-                'Enquiries'     => (int) $report->total_enquiries,
                 'WA Clicks'     => (int) $report->whatsapp_clicks,
+                'WA Reach'      => (int) $report->reach,
+                'WA Impr.'      => (int) $report->impressions,
             ];
         }
         if ($showLeadGen) {
             $graphMetrics += [
                 'Leads'       => (int) $report->total_leads,
-                'Form Subs'   => (int) $report->form_submissions,
                 'Link Clicks' => (int) $report->link_clicks,
+                'Lead Reach'  => (int) $report->lead_reach,
+                'Lead Impr.'  => (int) $report->lead_impressions,
             ];
         }
         if ($showEngagement) {
@@ -300,12 +292,6 @@
                 'Saves'     => (int) $report->saves,
             ];
         }
-        if ($showWhatsApp || $showLeadGen || $showEngagement) {
-            $graphMetrics += [
-                'Reach'       => (int) $report->reach,
-                'Impressions' => (int) $report->impressions,
-            ];
-        }
 
         // PNG charts via GD (DomPDF cannot reliably render inline <svg>)
         $barSrc = \App\Support\ReportCharts::barGraph($graphMetrics);
@@ -314,7 +300,7 @@
 
     <div class="page {{ !$loop->last ? 'page-break' : '' }}">
 
-        {{-- ---------- Header ---------- --}}
+        {{-- ---------- Report title block ---------- --}}
         <div class="pdf-header">
             <h1>
                 @if($isWhatsApp)        WhatsApp Meta Ads — Monthly Report
@@ -460,14 +446,13 @@
                 <table class="kpi-grid">
                     <tr>
                         <td><span class="kpi-value">{{ number_format((int) $report->total_conversations) }}</span><span class="kpi-label">Conversations</span></td>
-                        <td><span class="kpi-value">{{ number_format((int) $report->total_enquiries) }}</span><span class="kpi-label">Enquiries</span></td>
                         <td><span class="kpi-value">{{ number_format((int) $report->whatsapp_clicks) }}</span><span class="kpi-label">WhatsApp Clicks</span></td>
-                        <td><span class="kpi-value">{{ number_format((int) $report->reach) }}</span><span class="kpi-label">Reach</span></td>
+                        <td><span class="kpi-value">{{ number_format((float) $report->whatsapp_ctr, 2) }}%</span><span class="kpi-label">CTR</span></td>
                     </tr>
                     <tr>
+                        <td><span class="kpi-value">{{ number_format((int) $report->reach) }}</span><span class="kpi-label">Reach</span></td>
                         <td><span class="kpi-value">{{ number_format((int) $report->impressions) }}</span><span class="kpi-label">Impressions</span></td>
                         <td><span class="kpi-value">{{ number_format((float) $report->frequency, 2) }}</span><span class="kpi-label">Frequency</span></td>
-                        <td colspan="2"></td>
                     </tr>
                 </table>
             </div>
@@ -485,14 +470,13 @@
                 <table class="kpi-grid">
                     <tr>
                         <td><span class="kpi-value">{{ number_format((int) $report->total_leads) }}</span><span class="kpi-label">Total Leads</span></td>
-                        <td><span class="kpi-value">{{ number_format((int) $report->form_submissions) }}</span><span class="kpi-label">Form Submissions</span></td>
                         <td><span class="kpi-value">{{ number_format((int) $report->link_clicks) }}</span><span class="kpi-label">Link Clicks</span></td>
-                        <td><span class="kpi-value">{{ number_format((int) $report->reach) }}</span><span class="kpi-label">Reach</span></td>
+                        <td><span class="kpi-value">{{ number_format((float) $report->lead_ctr, 2) }}%</span><span class="kpi-label">CTR</span></td>
                     </tr>
                     <tr>
-                        <td><span class="kpi-value">{{ number_format((int) $report->impressions) }}</span><span class="kpi-label">Impressions</span></td>
-                        <td><span class="kpi-value">{{ number_format((float) $report->frequency, 2) }}</span><span class="kpi-label">Frequency</span></td>
-                        <td colspan="2"></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->lead_reach) }}</span><span class="kpi-label">Reach</span></td>
+                        <td><span class="kpi-value">{{ number_format((int) $report->lead_impressions) }}</span><span class="kpi-label">Impressions</span></td>
+                        <td><span class="kpi-value">{{ number_format((float) $report->lead_frequency, 2) }}</span><span class="kpi-label">Frequency</span></td>
                     </tr>
                 </table>
             </div>
@@ -663,10 +647,6 @@
 
     </div>
 @endforeach
-
-<div class="pdf-footer">
-    Generated on {{ now()->format('d M Y, H:i') }} &nbsp;•&nbsp; {{ config('app.name') }}
-</div>
 
 </body>
 </html>

@@ -28,12 +28,24 @@ class SocialMediaReportRequest extends FormRequest
     {
         return [
             'assign_service_id' => 'assign service',
+
+            // WhatsApp
             'total_conversations'  => 'total WhatsApp conversations',
-            'total_enquiries'      => 'total WhatsApp enquiries',
             'whatsapp_clicks'      => 'WhatsApp clicks',
+            'whatsapp_ctr'         => 'WhatsApp CTR',
+            'reach'                => 'WhatsApp reach',
+            'impressions'          => 'WhatsApp impressions',
+            'frequency'            => 'WhatsApp frequency',
+
+            // Lead generation
             'total_leads'          => 'total leads',
-            'form_submissions'     => 'form submissions',
             'link_clicks'          => 'link clicks',
+            'lead_reach'           => 'lead generation reach',
+            'lead_impressions'     => 'lead generation impressions',
+            'lead_frequency'       => 'lead generation frequency',
+            'lead_ctr'             => 'lead generation CTR',
+
+            // Engagement
             'total_engagement'     => 'total engagement',
             'reactions'            => 'reactions',
             'comments'             => 'comments',
@@ -41,9 +53,7 @@ class SocialMediaReportRequest extends FormRequest
             'saves'                => 'saves',
             'profile_visits'       => 'profile visits',
             'new_followers'        => 'new followers',
-            'reach'                => 'reach',
-            'impressions'          => 'impressions',
-            'frequency'            => 'frequency',
+
             'campaign_results.*.name'   => 'campaign / ad set name',
             'campaign_results.*.result' => 'campaign result',
             'campaign_results.*.spend'  => 'campaign spend',
@@ -79,8 +89,8 @@ class SocialMediaReportRequest extends FormRequest
         if (in_array('whatsapp_meta_ads', $types, true)) {
             $rules += [
                 'total_conversations' => ['required', 'integer', 'min:0'],
-                'total_enquiries'     => ['required', 'integer', 'min:0'],
                 'whatsapp_clicks'     => ['required', 'integer', 'min:0'],
+                'whatsapp_ctr'        => ['required', 'numeric', 'min:0', 'max:100'],
                 'reach'               => ['required', 'integer', 'min:0'],
                 'impressions'         => ['required', 'integer', 'min:0'],
                 'frequency'           => ['required', 'numeric', 'min:0'],
@@ -90,8 +100,11 @@ class SocialMediaReportRequest extends FormRequest
         if (in_array('lead_generation_ads', $types, true)) {
             $rules += [
                 'total_leads'      => ['required', 'integer', 'min:0'],
-                'form_submissions' => ['required', 'integer', 'min:0'],
                 'link_clicks'      => ['required', 'integer', 'min:0'],
+                'lead_ctr'         => ['required', 'numeric', 'min:0', 'max:100'],
+                'lead_reach'       => ['required', 'integer', 'min:0'],
+                'lead_impressions' => ['required', 'integer', 'min:0'],
+                'lead_frequency'   => ['required', 'numeric', 'min:0'],
             ];
         }
 

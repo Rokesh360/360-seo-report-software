@@ -89,53 +89,23 @@ $backUrl = $selectedAssignServiceId
         <div class="card mb-3">
             <div class="card-header">WhatsApp Campaign Performance</div>
             <div class="card-body row g-3">
+                @foreach([
+                'total_conversations' => ['Total Conversations', '1'],
+                'whatsapp_clicks' => ['WhatsApp Clicks', '1'],
+                'whatsapp_ctr' => ['CTR (%)', '0.01'],
+                'reach' => ['Reach', '1'],
+                'impressions' => ['Impressions', '1'],
+                'frequency' => ['Frequency', '0.01'],
+                ] as $field => [$label, $step])
                 <div class="col-md-4">
-                    <label class="form-label">Total Conversations <span class="text-danger">*</span></label>
-                    <input type="number" name="total_conversations"
-                        class="form-control {{ $err('total_conversations') }}"
-                        required value="{{ $v('total_conversations') }}">
-                    @error('total_conversations')<span class="field-error">{{ $message }}</span>@enderror
+                    <label class="form-label">{{ $label }} <span class="text-danger">*</span></label>
+                    <input type="number" min="0" step="{{ $step }}" name="{{ $field }}"
+                        @if($field === 'whatsapp_ctr') max="100" @endif
+                        class="form-control {{ $err($field) }}"
+                        required value="{{ $v($field) }}">
+                    @error($field)<span class="field-error">{{ $message }}</span>@enderror
                 </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Total Enquiries <span class="text-danger">*</span></label>
-                    <input type="number" name="total_enquiries"
-                        class="form-control {{ $err('total_enquiries') }}"
-                        required value="{{ $v('total_enquiries') }}">
-                    @error('total_enquiries')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">WhatsApp Clicks <span class="text-danger">*</span></label>
-                    <input type="number" name="whatsapp_clicks"
-                        class="form-control {{ $err('whatsapp_clicks') }}"
-                        required value="{{ $v('whatsapp_clicks') }}">
-                    @error('whatsapp_clicks')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Reach <span class="text-danger">*</span></label>
-                    <input type="number" name="reach"
-                        class="form-control {{ $err('reach') }}"
-                        required value="{{ $v('reach') }}">
-                    @error('reach')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Impressions <span class="text-danger">*</span></label>
-                    <input type="number" name="impressions"
-                        class="form-control {{ $err('impressions') }}"
-                        required value="{{ $v('impressions') }}">
-                    @error('impressions')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Frequency <span class="text-danger">*</span></label>
-                    <input type="number" step="0.01" name="frequency"
-                        class="form-control {{ $err('frequency') }}"
-                        required value="{{ $v('frequency') }}">
-                    @error('frequency')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
+                @endforeach
             </div>
         </div>
         @endif
@@ -145,29 +115,23 @@ $backUrl = $selectedAssignServiceId
         <div class="card mb-3">
             <div class="card-header">Lead Generation Performance</div>
             <div class="card-body row g-3">
+                @foreach([
+                'total_leads' => ['Total Leads', '1'],
+                'link_clicks' => ['Link Clicks', '1'],
+                'lead_ctr' => ['CTR (%)', '0.01'],
+                'lead_reach' => ['Reach', '1'],
+                'lead_impressions' => ['Impressions', '1'],
+                'lead_frequency' => ['Frequency', '0.01'],
+                ] as $field => [$label, $step])
                 <div class="col-md-4">
-                    <label class="form-label">Total Leads <span class="text-danger">*</span></label>
-                    <input type="number" name="total_leads"
-                        class="form-control {{ $err('total_leads') }}"
-                        required value="{{ $v('total_leads') }}">
-                    @error('total_leads')<span class="field-error">{{ $message }}</span>@enderror
+                    <label class="form-label">{{ $label }} <span class="text-danger">*</span></label>
+                    <input type="number" min="0" step="{{ $step }}" name="{{ $field }}"
+                        @if($field === 'lead_ctr') max="100" @endif
+                        class="form-control {{ $err($field) }}"
+                        required value="{{ $v($field) }}">
+                    @error($field)<span class="field-error">{{ $message }}</span>@enderror
                 </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Form Submissions <span class="text-danger">*</span></label>
-                    <input type="number" name="form_submissions"
-                        class="form-control {{ $err('form_submissions') }}"
-                        required value="{{ $v('form_submissions') }}">
-                    @error('form_submissions')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Link Clicks <span class="text-danger">*</span></label>
-                    <input type="number" name="link_clicks"
-                        class="form-control {{ $err('link_clicks') }}"
-                        required value="{{ $v('link_clicks') }}">
-                    @error('link_clicks')<span class="field-error">{{ $message }}</span>@enderror
-                </div>
+                @endforeach
             </div>
         </div>
         @endif

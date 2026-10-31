@@ -15,12 +15,23 @@ class SocialMediaReport extends Model
     protected $fillable = [
         'assign_service_id',
 
+        // WhatsApp
         'total_conversations',
-        'total_enquiries',
         'whatsapp_clicks',
+        'whatsapp_ctr',
+        'reach',
+        'impressions',
+        'frequency',
+
+        // Lead generation
         'total_leads',
-        'form_submissions',
         'link_clicks',
+        'lead_reach',
+        'lead_impressions',
+        'lead_frequency',
+        'lead_ctr',
+
+        // Engagement
         'total_engagement',
         'reactions',
         'comments',
@@ -28,9 +39,6 @@ class SocialMediaReport extends Model
         'saves',
         'profile_visits',
         'new_followers',
-        'reach',
-        'impressions',
-        'frequency',
 
         'campaign_results',
         'creative_performance',
@@ -41,6 +49,10 @@ class SocialMediaReport extends Model
 
     protected $casts = [
         'assign_service_id'      => 'integer',
+
+        'whatsapp_ctr'           => 'float',
+        'lead_frequency'         => 'float',
+        'lead_ctr'               => 'float',
 
         'campaign_results'       => 'array',
         'creative_performance'   => 'array',
