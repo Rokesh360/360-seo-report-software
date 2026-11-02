@@ -462,6 +462,17 @@ $sections = [
                 <p id="cmpSummary">{{ $campaigns->count() }} campaign(s) in this period</p>
             </div>
 
+            <form method="POST" id="exportSelectedForm" class="range-sync-form" action="{{ route('meta-catalog.export-pdf') }}">
+                @csrf
+                <input type="hidden" name="range" class="sync-range">
+                <input type="hidden" name="since" class="sync-since">
+                <input type="hidden" name="until" class="sync-until">
+                <div id="selectedIds"></div>
+                <button type="submit" id="exportSelectedBtn" class="button button-secondary" disabled>
+                    Export Selected PDF (<span id="selCount">0</span>)
+                </button>
+            </form>
+
             @if($campaigns->isNotEmpty())
             <label class="mx-filter">
                 <span>Result type</span>
@@ -482,6 +493,9 @@ $sections = [
             <table id="campaignTable" class="display" style="width:100%">
                 <thead>
                     <tr>
+                        <th class="no-sort" style="width:32px">
+                            <input type="checkbox" id="selectAllCampaigns" title="Select all (filtered)">
+                        </th>
                         <th>Campaign</th>
                         <th>Spend</th>
                         <th>Impressions</th>
@@ -503,6 +517,10 @@ $sections = [
                     $cur = $c['account_currency'] ?? '';
                     @endphp
                     <tr>
+                        <td>
+                            <input type="checkbox" class="cmp-check" value="{{ $c['campaign_id'] ?? '' }}"
+                                @disabled(empty($c['campaign_id']))>
+                        </td>
                         <td data-order="{{ $c['campaign_name'] ?? '' }}">
                             <span class="keyword-name">{{ $c['campaign_name'] ?? '-' }}</span>
                             <span class="keyword-url">{{ $c['campaign_id'] ?? '' }}</span>
@@ -588,20 +606,26 @@ $sections = [
         }
 
         const $ = window.jQuery;
-        const RESULT_COL = 5;
-        const SPEND_COL = 1;
+        const RESULT_COL = 6;
+        const SPEND_COL = 2;
 
         const dt = $('#campaignTable').DataTable({
             order: [
-                [1, 'desc']
+                [SPEND_COL, 'desc']
             ],
             pageLength: 10,
             lengthMenu: [10, 25, 50, 100],
             scrollX: true,
             columnDefs: [{
-                targets: RESULT_COL,
-                type: 'num'
-            }],
+                    targets: 0,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    targets: RESULT_COL,
+                    type: 'num'
+                }
+            ],
             language: {
                 emptyTable: 'No campaigns found',
                 zeroRecords: 'No campaigns match this filter'
@@ -650,6 +674,72 @@ $sections = [
 
         dt.on('draw', refreshSummary);
         refreshSummary();
+
+        // ---- Campaign selection (persists across pages/filters) ----
+        const selectedIds = new Set();
+        const selectAll = document.getElementById('selectAllCampaigns');
+        const exportBtn = document.getElementById('exportSelectedBtn');
+        const selCount = document.getElementById('selCount');
+
+        const syncSelectionUi = () => {
+            selCount.textContent = selectedIds.size;
+            exportBtn.disabled = selectedIds.size === 0;
+
+            // header checkbox reflects the currently filtered rows
+            const boxes = dt.rows({
+                    search: 'applied'
+                }).nodes().toArray()
+                .map(tr => tr.querySelector('.cmp-check'))
+                .filter(cb => cb && !cb.disabled);
+            const checked = boxes.filter(cb => selectedIds.has(cb.value)).length;
+            selectAll.checked = boxes.length > 0 && checked === boxes.length;
+            selectAll.indeterminate = checked > 0 && checked < boxes.length;
+        };
+
+        // restore checked state whenever DataTables redraws (paging, sort, filter)
+        dt.on('draw', () => {
+            $('#campaignTable .cmp-check').each(function() {
+                this.checked = selectedIds.has(this.value);
+            });
+            syncSelectionUi();
+        });
+
+        $('#campaignTable tbody').on('change', '.cmp-check', function() {
+            this.checked ? selectedIds.add(this.value) : selectedIds.delete(this.value);
+            syncSelectionUi();
+        });
+
+        // select / unselect all rows matching the current filter (all pages)
+        selectAll.addEventListener('change', function() {
+            dt.rows({
+                search: 'applied'
+            }).nodes().toArray().forEach(tr => {
+                const cb = tr.querySelector('.cmp-check');
+                if (!cb || cb.disabled) return;
+                cb.checked = selectAll.checked;
+                selectAll.checked ? selectedIds.add(cb.value) : selectedIds.delete(cb.value);
+            });
+            syncSelectionUi();
+        });
+
+        // inject selected IDs into the export form on submit
+        document.getElementById('exportSelectedForm').addEventListener('submit', function(e) {
+            if (selectedIds.size === 0) {
+                e.preventDefault();
+                return;
+            }
+            const box = document.getElementById('selectedIds');
+            box.innerHTML = '';
+            selectedIds.forEach(id => {
+                const i = document.createElement('input');
+                i.type = 'hidden';
+                i.name = 'campaign_ids[]';
+                i.value = id;
+                box.appendChild(i);
+            });
+        });
+
+        syncSelectionUi();
     });
     (function() {
         if (typeof Chart === 'undefined') return;

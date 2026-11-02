@@ -214,8 +214,7 @@
     </header>
 
     <footer>
-        #34/29, 3rd Street, 200ft Radial Road Chromepet, Chennai-44.<br>
-        +919884682652, 8124877711. info@360degreeinfo.com
+        No. 34/29, 3rd Street, 200 Feet Radial Rd, Padmavathi Nagar, Chromepet, Tambaram, Tamil Nadu 600044
     </footer>
 
     @php

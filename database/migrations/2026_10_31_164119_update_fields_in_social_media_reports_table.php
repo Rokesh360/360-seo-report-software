@@ -18,16 +18,16 @@ return new class extends Migration
             $table->decimal('lead_frequency', 8, 2)->nullable()->after('lead_impressions');
             $table->decimal('lead_ctr', 5, 2)->nullable()->after('lead_frequency');
 
-            // Removed metrics
-            $table->dropColumn(['total_enquiries', 'form_submissions']);
+            // // Removed metrics
+            // $table->dropColumn(['total_enquiries', 'form_submissions']);
         });
     }
 
     public function down(): void
     {
         Schema::table('social_media_reports', function (Blueprint $table) {
-            $table->unsignedBigInteger('total_enquiries')->nullable();
-            $table->unsignedBigInteger('form_submissions')->nullable();
+            // $table->unsignedBigInteger('total_enquiries')->nullable();
+            // $table->unsignedBigInteger('form_submissions')->nullable();
 
             $table->dropColumn([
                 'whatsapp_ctr',

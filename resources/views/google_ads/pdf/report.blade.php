@@ -158,7 +158,7 @@
     </header>
 
     <div class="footer">
-        &copy; {{ now()->format('Y') }} 360 Degree Info Pvt Ltd. All rights reserved.
+        No. 34/29, 3rd Street, 200 Feet Radial Rd, Padmavathi Nagar, Chromepet, Tambaram, Tamil Nadu 600044
     </div>
 
     <div>

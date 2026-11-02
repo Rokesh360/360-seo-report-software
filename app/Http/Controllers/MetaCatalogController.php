@@ -91,7 +91,12 @@ class MetaCatalogController extends Controller
             'range' => ['required', 'in:' . implode(',', array_keys($ranges))],
             'since' => ['nullable', 'required_if:range,custom', 'date_format:Y-m-d', 'before_or_equal:today'],
             'until' => ['nullable', 'required_if:range,custom', 'date_format:Y-m-d', 'after_or_equal:since', 'before_or_equal:today'],
+            'campaign_ids'   => ['nullable', 'array'],
+            'campaign_ids.*' => ['string', 'max:64'],
         ]);
+
+        $selectedIds = collect($filters['campaign_ids'] ?? [])->filter()->values();
+        $isSelection = $selectedIds->isNotEmpty();
 
         // "Today" is sent to the service as a one-day custom range (same as index())
         $serviceFilters = $filters;
@@ -122,6 +127,33 @@ class MetaCatalogController extends Controller
                 return $c;
             });
 
+        if ($isSelection) {
+            $campaigns = $campaigns
+                ->filter(fn($c) => $selectedIds->contains((string) ($c['campaign_id'] ?? '')))
+                ->values();
+
+            if ($campaigns->isEmpty()) {
+                return back()->withErrors(['range' => 'None of the selected campaigns were found for this period.']);
+            }
+
+            // Account-level summary no longer applies; rebuild from the selected campaigns
+            $spend = (float) $campaigns->sum(fn($c) => (float) ($c['spend'] ?? 0));
+            $impr  = (float) $campaigns->sum(fn($c) => (float) ($c['impressions'] ?? 0));
+            $clk   = (float) $campaigns->sum(fn($c) => (float) ($c['clicks'] ?? 0));
+
+            $summary = array_merge($summary, [
+                'spend'       => $spend,
+                'impressions' => $impr,
+                'clicks'      => $clk,
+                'ctr'         => $impr > 0 ? $clk / $impr * 100 : 0,
+                'cpc'         => $clk > 0 ? $spend / $clk : 0,
+                'reach'       => null, // reach is not additive across campaigns (overlapping people)
+            ]);
+
+            // Daily data from the service is account-wide, so omit it for a selection
+            $daily = collect();
+        }
+
         $daily = collect($data['daily']['data'] ?? [])
             ->filter(fn($d) => is_array($d) && isset($d['date_start']))
             ->sortBy('date_start')
@@ -137,6 +169,9 @@ class MetaCatalogController extends Controller
         $fileSuffix = $filters['range'] === 'custom'
             ? "{$filters['since']}-to-{$filters['until']}"
             : $filters['range'] . '-' . now()->toDateString();
+
+        // Selected pdf rename
+        // $fileSuffix .= $isSelection ? '-selected-' . $campaigns->count() : '';
 
         return Pdf::loadView('meta_catalog.export_pdf', [
             'summary'    => $summary,
