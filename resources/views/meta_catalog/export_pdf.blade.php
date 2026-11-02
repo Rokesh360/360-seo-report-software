@@ -219,12 +219,14 @@
 
     @php
         $f      = fn ($v, $d = 2) => number_format((float) $v, $d);
-        $spend  = (float) ($summary['spend'] ?? 0);
         $impr   = (float) ($summary['impressions'] ?? 0);
         $clicks = (float) ($summary['clicks'] ?? 0);
-        $reach  = (float) ($summary['reach'] ?? 0);
         $ctr    = (float) ($summary['ctr'] ?? ($impr > 0 ? $clicks / $impr * 100 : 0));
-        $cpc    = (float) ($summary['cpc'] ?? ($clicks > 0 ? $spend / $clicks : 0));
+
+        // Reach is null when a campaign selection is exported (not additive across campaigns)
+        $hasReach    = ($summary['reach'] ?? null) !== null;
+        $reach       = (float) ($summary['reach'] ?? 0);
+        $isSelection = $isSelection ?? false;
     @endphp
 
     {{-- ===================== REPORT DETAILS (first page) ===================== --}}
@@ -232,6 +234,9 @@
         <p>Meta Ads Performance Report</p>
         <p>Date range: {{ $rangeLabel }}</p>
         <p>Reporting period: {{ $periodText }}</p>
+        @if($isSelection)
+            <p>Selected campaigns: {{ $campaigns->count() }}</p>
+        @endif
         <p>Generated: {{ now()->format('d M Y H:i') }}</p>
     </div>
 
@@ -240,15 +245,15 @@
         <h2>Performance Summary</h2>
         <table class="kpis">
             <tr>
-                <td><span class="kpi">{{ $currency }} {{ $f($spend) }}</span><span class="label">Spend</span></td>
                 <td><span class="kpi">{{ $f($impr, 0) }}</span><span class="label">Impressions</span></td>
                 <td><span class="kpi">{{ $f($clicks, 0) }}</span><span class="label">Clicks</span></td>
                 <td><span class="kpi">{{ $f($ctr) }}%</span><span class="label">CTR</span></td>
-            </tr>
-            <tr>
-                <td><span class="kpi">{{ $currency }} {{ $f($cpc) }}</span><span class="label">CPC</span></td>
-                <td><span class="kpi">{{ $f($reach, 0) }}</span><span class="label">Reach</span></td>
-                <td colspan="2"><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
+                @if($hasReach)
+                    <td><span class="kpi">{{ $f($reach, 0) }}</span><span class="label">Reach</span></td>
+                    <td><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
+                @else
+                    <td><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
+                @endif
             </tr>
         </table>
     </div>
@@ -257,37 +262,31 @@
     <div class="section">
         <h2>Campaigns</h2>
         @if($campaigns->isEmpty())
-            <p class="muted">No campaign spend in this period.</p>
+            <p class="muted">No campaigns in this period.</p>
         @else
             <table class="data">
                 <thead>
                     <tr>
                         <th>Campaign</th>
-                        <th class="num">Spend</th>
                         <th class="num">Impressions</th>
                         <th class="num">Clicks</th>
                         <th class="num">CTR</th>
                         <th>Result</th>
-                        <th class="num">Cost / result</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($campaigns as $c)
                         @php
-                            $cs  = (float) ($c['spend'] ?? 0);
                             $ci  = (float) ($c['impressions'] ?? 0);
                             $cc  = (float) ($c['clicks'] ?? 0);
                             $res = $c['_result'];
-                            $cur = $c['account_currency'] ?? $currency;
                         @endphp
                         <tr>
                             <td>{{ $c['campaign_name'] ?? '-' }}</td>
-                            <td class="num">{{ $cur }} {{ $f($cs) }}</td>
                             <td class="num">{{ $f($ci, 0) }}</td>
                             <td class="num">{{ $f($cc, 0) }}</td>
                             <td class="num">{{ $ci > 0 ? $f($cc / $ci * 100) . '%' : '-' }}</td>
                             <td>{{ $res ? $f($res['value'], 0) . ' ' . $res['label'] : 'No results' }}</td>
-                            <td class="num">{{ $res && $res['value'] > 0 ? $cur . ' ' . $f($cs / $res['value']) : '-' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -296,39 +295,40 @@
     </div>
 
     {{-- ===================== DAILY BREAKDOWN ===================== --}}
-    <div class="section">
-        <h2>Daily Breakdown</h2>
-        @if($daily->isEmpty())
-            <p class="muted">No daily data in this period.</p>
-        @else
-            <table class="data">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th class="num">Spend</th>
-                        <th class="num">Impressions</th>
-                        <th class="num">Clicks</th>
-                        <th class="num">CTR</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($daily as $d)
-                        @php
-                            $di = (float) ($d['impressions'] ?? 0);
-                            $dc = (float) ($d['clicks'] ?? 0);
-                        @endphp
+    {{-- Hidden for a campaign selection: daily data is account-wide --}}
+    @if(! $isSelection)
+        <div class="section">
+            <h2>Daily Breakdown</h2>
+            @if($daily->isEmpty())
+                <p class="muted">No daily data in this period.</p>
+            @else
+                <table class="data">
+                    <thead>
                         <tr>
-                            <td>{{ \Carbon\Carbon::parse($d['date_start'])->format('d M Y') }}</td>
-                            <td class="num">{{ $currency }} {{ $f($d['spend'] ?? 0) }}</td>
-                            <td class="num">{{ $f($di, 0) }}</td>
-                            <td class="num">{{ $f($dc, 0) }}</td>
-                            <td class="num">{{ $di > 0 ? $f($dc / $di * 100) . '%' : '-' }}</td>
+                            <th>Date</th>
+                            <th class="num">Impressions</th>
+                            <th class="num">Clicks</th>
+                            <th class="num">CTR</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
-    </div>
+                    </thead>
+                    <tbody>
+                        @foreach($daily as $d)
+                            @php
+                                $di = (float) ($d['impressions'] ?? 0);
+                                $dc = (float) ($d['clicks'] ?? 0);
+                            @endphp
+                            <tr>
+                                <td>{{ \Carbon\Carbon::parse($d['date_start'])->format('d M Y') }}</td>
+                                <td class="num">{{ $f($di, 0) }}</td>
+                                <td class="num">{{ $f($dc, 0) }}</td>
+                                <td class="num">{{ $di > 0 ? $f($dc / $di * 100) . '%' : '-' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    @endif
 
 </body>
 
