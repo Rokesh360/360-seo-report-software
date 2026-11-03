@@ -3923,3 +3923,27 @@ div.dt-container .dt-length select {
     color: #46557a;
     text-align: left;
 }
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4
+}
+
+.badge-active {
+    background: #e6f6ec;
+    color: #12803c
+}
+
+.badge-inactive {
+    background: #fdecea;
+    color: #c0392b
+}
+
+.badge-unknown {
+    background: #eef0f5;
+    color: #6f7c96
+}

@@ -39,6 +39,7 @@ return [
         'graph_api_version' => env('META_GRAPH_API_VERSION', 'v21.0'),
         'daily_sync_time'   => env('META_ADS_SYNC_TIME', '14:33'),
         'business_id'       => env('META_BUSINESS_ID'),
+        'api_version' => env('META_API_VERSION', 'v21.0'),
         'ad_account_id'     => env('META_AD_ACCOUNT_ID'),
         'catalog_id'        => env('META_CATALOG_ID'),
         'access_token'      => env('META_ACCESS_TOKEN'),
@@ -46,5 +47,18 @@ return [
         'app_secret'        => env('META_APP_SECRET'),
         'redirect_uri'      => env('META_REDIRECT_URI'),
         'scopes'            => ['ads_read', 'business_management', 'catalog_management'],
+    ],
+
+    'customer_campaign' => [
+        [
+            'name' => '360 Leads',
+            'url' => env('CUSTOMER_CAMPAIGN_API_URL'),
+            'api_key' => env('CUSTOMER_CAMPAIGN_API_KEY'),
+        ],
+        [
+            'name' => '360 CRM',
+            'url' => env('CRM_CAMPAIGN_API_URL'),
+            'api_key' => env('CRM_CAMPAIGN_API_KEY'),
+        ],
     ],
 ];

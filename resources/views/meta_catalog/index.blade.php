@@ -152,8 +152,16 @@ $required = ['ads_read', 'business_management', 'catalog_management'];
 $sections = [
 'Permissions' => 'permissions', 'Business' => 'business',
 'Owned catalogs' => 'owned', 'Shared catalogs' => 'client',
-'Ad spend summary' => 'summary', 'Campaigns' => 'campaigns', 'Daily spend' => 'daily',
+'Ad spend summary' => 'summary', 'Campaigns' => 'campaigns',
+'Campaign status' => 'campaign_status', 'Daily spend' => 'daily',
 ];
+
+$statusBadge = function (?string $eff) {
+if (! $eff) return ['Unknown', 'badge-unknown'];
+return $eff === 'ACTIVE'
+? ['Active', 'badge-active']
+: ['Inactive', 'badge-inactive'];
+};
 @endphp
 
 <div class="dashboard-content report-content">
@@ -462,6 +470,19 @@ $sections = [
                 <p id="cmpSummary">{{ $campaigns->count() }} campaign(s) in this period</p>
             </div>
 
+            {{-- Send selected campaigns to 360 Leads --}}
+            <div>
+                <button
+                    type="button"
+                    id="send360LeadsBtn"
+                    class="button button-primary"
+                    hidden
+                    disabled>
+                    Send to 360 Leads
+                    (<span id="send360LeadsCount">0</span>)
+                </button>
+            </div>
+
             <form method="POST" id="exportSelectedForm" class="range-sync-form" action="{{ route('meta-catalog.export-pdf') }}">
                 @csrf
                 <input type="hidden" name="range" class="sync-range">
@@ -502,6 +523,7 @@ $sections = [
                         <th>Clicks</th>
                         <th>CTR</th>
                         <th>Result</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -515,6 +537,8 @@ $sections = [
                     $resValue = $primary['value'] ?? 0;
                     $costPerResult = $resValue > 0 ? $cs / $resValue : null;
                     $cur = $c['account_currency'] ?? '';
+                    $eff = $c['effective_status'] ?? null;
+                    [$badgeText, $badgeClass] = $statusBadge($eff);
                     @endphp
                     <tr>
                         <td>
@@ -541,6 +565,14 @@ $sections = [
                             </span>
                             @else
                             <span class="keyword-url">No results</span>
+                            @endif
+                        </td>
+                        <td data-order="{{ $badgeText }}">
+                            <span class="status-badge {{ $badgeClass }}" title="Set: {{ $c['status'] ?? '-' }}">
+                                {{ $badgeText }}
+                            </span>
+                            @if($eff && $eff !== 'ACTIVE')
+                            <span class="keyword-url">{{ Str::headline(strtolower($eff)) }}</span>
                             @endif
                         </td>
                     </tr>
@@ -681,19 +713,41 @@ $sections = [
         const exportBtn = document.getElementById('exportSelectedBtn');
         const selCount = document.getElementById('selCount');
 
+        const send360Btn = document.getElementById('send360LeadsBtn');
+        const send360Count = document.getElementById('send360LeadsCount');
+
+        const send360Response = document.getElementById('send360LeadsResponse');
+        const send360Message = document.getElementById('send360LeadsMessage');
+        const send360Details = document.getElementById('send360LeadsDetails');
+
         const syncSelectionUi = () => {
+
+            // Existing PDF selection
             selCount.textContent = selectedIds.size;
             exportBtn.disabled = selectedIds.size === 0;
 
-            // header checkbox reflects the currently filtered rows
+            // 360 Leads selection
+            document.getElementById('send360LeadsCount').textContent = selectedIds.size;
+
+            send360Btn.hidden = selectedIds.size === 0;
+            send360Btn.disabled = selectedIds.size === 0;
+
+            // Header checkbox reflects filtered rows
             const boxes = dt.rows({
                     search: 'applied'
                 }).nodes().toArray()
                 .map(tr => tr.querySelector('.cmp-check'))
                 .filter(cb => cb && !cb.disabled);
-            const checked = boxes.filter(cb => selectedIds.has(cb.value)).length;
-            selectAll.checked = boxes.length > 0 && checked === boxes.length;
-            selectAll.indeterminate = checked > 0 && checked < boxes.length;
+
+            const checked = boxes.filter(
+                cb => selectedIds.has(cb.value)
+            ).length;
+
+            selectAll.checked =
+                boxes.length > 0 && checked === boxes.length;
+
+            selectAll.indeterminate =
+                checked > 0 && checked < boxes.length;
         };
 
         // restore checked state whenever DataTables redraws (paging, sort, filter)
@@ -737,6 +791,183 @@ $sections = [
                 i.value = id;
                 box.appendChild(i);
             });
+        });
+
+        // Send selected campaigns to 360 Leads using SweetAlert2
+        send360Btn.addEventListener('click', async function() {
+
+            if (selectedIds.size === 0) {
+                Swal.fire({
+                    title: 'No campaigns selected',
+                    text: 'Please select at least one campaign.',
+                    icon: 'warning',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#f7921e'
+                });
+                return;
+            }
+
+            const campaignIds = Array.from(selectedIds);
+
+            // Confirmation popup
+            const confirmation = await Swal.fire({
+                title: 'Send campaigns to 360 Leads?',
+                html: `Are you sure you want to send <strong>${campaignIds.length}</strong> selected campaign(s) to 360 Leads?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Send',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#f7921e',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+                allowOutsideClick: false
+            });
+
+            if (!confirmation.isConfirmed) {
+                return;
+            }
+
+            const csrfToken = document.querySelector(
+                '#exportSelectedForm input[name="_token"]'
+            ).value;
+
+            send360Btn.disabled = true;
+            send360Btn.textContent = 'Sending campaigns...';
+
+            // Loading popup
+            Swal.fire({
+                title: 'Sending campaigns...',
+                html: 'Please wait while the selected campaigns are sent to 360 Leads.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+
+                const response = await fetch(
+                    @json(route('meta-catalog.send-to-360-leads')), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            campaign_ids: campaignIds
+                        })
+                    }
+                );
+
+                const result = await response.json();
+
+                // Save response details
+                send360Response.style.display = 'block';
+                send360Message.textContent = result.message || '';
+                send360Details.textContent = JSON.stringify(result, null, 4);
+
+                const successful = Number(result.successful || 0);
+                const failed = Number(result.failed || 0);
+
+                // Complete success
+                if (response.ok && result.success === true && failed === 0) {
+
+                    selectedIds.clear();
+
+                    $('#campaignTable .cmp-check').prop('checked', false);
+
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+
+                    syncSelectionUi();
+
+                    await Swal.fire({
+                        title: 'Successfully Sent!',
+                        html: `
+                    <p>${result.message || 'Campaigns successfully sent to 360 Leads.'}</p>
+                    <p><strong>${successful || campaignIds.length}</strong> campaign(s) sent successfully.</p>
+                `,
+                        icon: 'success',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#f7921e'
+                    });
+
+                }
+
+                // Partial success
+                else if (successful > 0 || response.status === 207) {
+
+                    await Swal.fire({
+                        title: 'Partially Completed',
+                        html: `
+                    <p>${result.message || 'Some campaigns were sent successfully.'}</p>
+                    <p><strong>Successful:</strong> ${successful}</p>
+                    <p><strong>Failed:</strong> ${failed}</p>
+                `,
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#f7921e'
+                    });
+
+                    // Keep failed campaign IDs selected for retry.
+                    const failedIds = (result.failed_campaigns || [])
+                        .map(item => String(item.campaign_id));
+
+                    if (failedIds.length > 0) {
+                        selectedIds.clear();
+                        failedIds.forEach(id => selectedIds.add(id));
+                    } else {
+                        selectedIds.clear();
+                    }
+
+                    $('#campaignTable .cmp-check').each(function() {
+                        this.checked = selectedIds.has(this.value);
+                    });
+
+                    syncSelectionUi();
+                }
+
+                // API error / complete failure
+                else {
+
+                    await Swal.fire({
+                        title: 'Failed to Send Campaigns',
+                        text: result.message || result.error || 'Unable to send campaigns to 360 Leads.',
+                        icon: 'error',
+                        confirmButtonText: 'Try Again',
+                        confirmButtonColor: '#f7921e'
+                    });
+
+                }
+
+            } catch (error) {
+
+                console.error('360 Leads API Error:', error);
+
+                await Swal.fire({
+                    title: 'Connection Error',
+                    text: 'Unable to connect to 360 Leads. Please check your internet connection and try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#f7921e'
+                });
+
+            } finally {
+
+                send360Btn.disabled = false;
+
+                // Restore button and selected count
+                send360Btn.innerHTML =
+                    'Send to 360 Leads (<span id="send360LeadsCount">' +
+                    selectedIds.size +
+                    '</span>)';
+
+                syncSelectionUi();
+            }
         });
 
         syncSelectionUi();

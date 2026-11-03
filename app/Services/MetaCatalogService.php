@@ -58,6 +58,17 @@ class MetaCatalogService
         return str_contains($version, '.') ? $version : $version . '.0';
     }
 
+    public function campaignStatuses(): array
+    {
+        return $this->rawGetAll(
+            $this->adAccountId() . '/campaigns',
+            [
+                'fields' => 'id,name,status,effective_status',
+                'limit'  => 200,
+            ]
+        );
+    }
+
     /** The login URL. "scope" is where the permissions are requested. */
     public function loginUrl(string $state): string
     {
@@ -296,6 +307,54 @@ class MetaCatalogService
         $time = $this->timeParams($filters);
         $account = fn() => $this->adAccountId();
 
+        $statusSection = $this->section(fn() => $this->campaignStatuses());
+
+        $campaigns = $this->section(fn() => $this->rawGetAll(
+            $account() . '/insights',
+            [
+                'fields' => implode(',', [
+                    'campaign_id',
+                    'campaign_name',
+                    'spend',
+                    'impressions',
+                    'clicks',
+                    'reach',
+                    'ctr',
+                    'cpc',
+                    'cpm',
+                    'actions',
+                    'account_currency',
+                    'date_start',
+                    'date_stop',
+                ]),
+                'level' => 'campaign',
+                'limit' => 200,
+            ] + $time
+        ));
+
+        // Merge status into every campaign row (data + raw response)
+        if ($campaigns['ok']) {
+            $map = collect($statusSection['data'] ?? [])
+                ->filter(fn($s) => is_array($s) && isset($s['id']))
+                ->keyBy('id');
+
+            $attach = function ($row) use ($map) {
+                if (! is_array($row)) {
+                    return $row;
+                }
+                $s = $map->get($row['campaign_id'] ?? '');
+                $row['status']           = $s['status'] ?? null;            // what the advertiser set
+                $row['effective_status'] = $s['effective_status'] ?? null;  // actual delivery state
+                return $row;
+            };
+
+            $campaigns['data'] = array_map($attach, $campaigns['data'] ?? []);
+
+            if (isset($campaigns['raw']['body']['data']) && is_array($campaigns['raw']['body']['data'])) {
+                $campaigns['raw']['body']['data'] = array_map($attach, $campaigns['raw']['body']['data']);
+            }
+        }
+
         return [
             'permissions' => $this->section(fn() => $this->permissions()),
             'business'    => $this->section(fn() => $this->businessInfo()),
@@ -307,31 +366,8 @@ class MetaCatalogService
                 ['fields' => 'spend,impressions,clicks,reach,ctr,cpc,account_currency'] + $time
             )),
 
-            // -----------------------------------------------------------
-            // Campaigns — full results, one row per campaign
-            // -----------------------------------------------------------
-            'campaigns' => $this->section(fn() => $this->rawGetAll(
-                $account() . '/insights',
-                [
-                    'fields' => implode(',', [
-                        'campaign_id',
-                        'campaign_name',
-                        'spend',
-                        'impressions',
-                        'clicks',
-                        'reach',
-                        'ctr',
-                        'cpc',
-                        'cpm',
-                        'actions',           // conversions (purchase, lead, etc.)
-                        'account_currency',
-                        'date_start',
-                        'date_stop',
-                    ]),
-                    'level'  => 'campaign',
-                    'limit'  => 200,
-                ] + $time
-            )),
+            'campaigns'       => $campaigns,
+            'campaign_status' => $statusSection,
 
             'daily' => $this->section(fn() => $this->rawGetAll(
                 $account() . '/insights',
