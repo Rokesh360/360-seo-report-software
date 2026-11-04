@@ -22,6 +22,21 @@ class SocialMediaReportRequest extends FormRequest
         if (is_scalar($assignmentId) && filter_var($assignmentId, FILTER_VALIDATE_INT) !== false) {
             $this->merge(['assign_service_id' => (int) $assignmentId]);
         }
+
+        // Remove completely empty campaign rows and normalise spend
+        $rows = collect((array) $this->input('campaign_results', []))
+            ->map(function ($row) {
+                $row = (array) $row;
+                if (isset($row['spend'])) {
+                    $row['spend'] = preg_replace('/\D/', '', (string) $row['spend']);
+                }
+                return $row;
+            })
+            ->filter(fn($row) => collect($row)->contains(fn($v) => trim((string) $v) !== ''))
+            ->values()
+            ->all();
+
+        $this->merge(['campaign_results' => $rows]);
     }
 
     public function attributes(): array
@@ -109,12 +124,14 @@ class SocialMediaReportRequest extends FormRequest
         }
 
         if (array_intersect(['whatsapp_meta_ads', 'lead_generation_ads'], $types) !== []) {
+            $rowFields = 'campaign_results.*.result,campaign_results.*.spend,campaign_results.*.note';
+
             $rules += [
-                'campaign_results'          => ['required', 'array', 'min:1'],
-                'campaign_results.*.name'   => ['required', 'string'],
-                'campaign_results.*.result' => ['required', 'string'],
-                'campaign_results.*.spend' => ['required', 'integer', 'min:0'],
-                'campaign_results.*.note'   => ['required', 'string'],
+                'campaign_results'          => ['nullable', 'array'],
+                'campaign_results.*.name'   => ['required_with:' . $rowFields, 'nullable', 'string'],
+                'campaign_results.*.result' => ['nullable', 'string'],
+                'campaign_results.*.spend'  => ['nullable', 'integer', 'min:0'],
+                'campaign_results.*.note'   => ['nullable', 'string'],
             ];
         }
 
@@ -164,7 +181,7 @@ class SocialMediaReportRequest extends FormRequest
         return Service::query()
             ->whereIn('id', $serviceIds)
             ->pluck('name')
-            ->map(fn (string $name) => $serviceNameToType[$name] ?? null)
+            ->map(fn(string $name) => $serviceNameToType[$name] ?? null)
             ->filter()
             ->unique()
             ->values()
@@ -182,7 +199,7 @@ class SocialMediaReportRequest extends FormRequest
             }
 
             $spent = collect((array) $this->input('campaign_results', []))
-                ->sum(fn ($row) => (int) ($row['spend'] ?? 0));
+                ->sum(fn($row) => (int) ($row['spend'] ?? 0));
 
             if ($spent > $budget) {
                 $validator->errors()->add(

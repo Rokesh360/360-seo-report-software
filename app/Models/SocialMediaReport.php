@@ -85,4 +85,12 @@ class SocialMediaReport extends Model
     {
         return $this->service_names ?: 'Social Media Report';
     }
+
+    public function getFilledCampaignResultsAttribute(): array
+    {
+        return collect($this->campaign_results ?? [])
+            ->filter(fn($row) => collect((array) $row)->contains(fn($v) => trim((string) $v) !== ''))
+            ->values()
+            ->all();
+    }
 }

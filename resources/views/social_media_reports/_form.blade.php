@@ -182,14 +182,14 @@ $backUrl = $selectedAssignServiceId
                     <div class="col-md-3">
                         <input name="campaign_results[{{ $i }}][name]"
                             class="form-control {{ $err("campaign_results.$i.name") }}"
-                            required placeholder="Campaign / Ad Set Name"
+                             placeholder="Campaign / Ad Set Name"
                             value="{{ $row['name'] ?? '' }}">
                         @error("campaign_results.$i.name")<span class="field-error">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-2">
                         <input name="campaign_results[{{ $i }}][result]"
                             class="form-control {{ $err("campaign_results.$i.result") }}"
-                            required placeholder="Result"
+                             placeholder="Result"
                             value="{{ $row['result'] ?? '' }}">
                         @error("campaign_results.$i.result")<span class="field-error">{{ $message }}</span>@enderror
                     </div>
@@ -197,7 +197,7 @@ $backUrl = $selectedAssignServiceId
                         <input type="text" inputmode="numeric" pattern="[0-9]*"
                             name="campaign_results[{{ $i }}][spend]"
                             class="form-control js-spend {{ $err("campaign_results.$i.spend") }}"
-                            required placeholder="Spend"
+                             placeholder="Spend"
                             value="{{ preg_replace('/\D/', '', (string) ($row['spend'] ?? '')) }}">
                         <div id="budgetWarning" class="text-danger small mt-2" style="display:none;">
                             Spend exceeds the client budget.
@@ -207,7 +207,7 @@ $backUrl = $selectedAssignServiceId
                     <div class="col-md-4">
                         <input name="campaign_results[{{ $i }}][note]"
                             class="form-control {{ $err("campaign_results.$i.note") }}"
-                            required placeholder="Note"
+                             placeholder="Note"
                             value="{{ $row['note'] ?? '' }}">
                         @error("campaign_results.$i.note")<span class="field-error">{{ $message }}</span>@enderror
                     </div>
