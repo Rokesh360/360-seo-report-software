@@ -51,12 +51,12 @@ return [
 
     'customer_campaign' => [
         [
-            'name' => '360 Leads',
+            'name' => '360 Lead Calls',
             'url' => env('CUSTOMER_CAMPAIGN_API_URL'),
             'api_key' => env('CUSTOMER_CAMPAIGN_API_KEY'),
         ],
         [
-            'name' => '360 CRM',
+            'name' => '360 Leads',
             'url' => env('CRM_CAMPAIGN_API_URL'),
             'api_key' => env('CRM_CAMPAIGN_API_KEY'),
         ],

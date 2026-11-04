@@ -543,6 +543,7 @@ return $eff === 'ACTIVE'
                     <tr>
                         <td>
                             <input type="checkbox" class="cmp-check" value="{{ $c['campaign_id'] ?? '' }}"
+                                data-label="{{ $resLabel }}"
                                 @disabled(empty($c['campaign_id']))>
                         </td>
                         <td data-order="{{ $c['campaign_name'] ?? '' }}">
@@ -714,23 +715,37 @@ return $eff === 'ACTIVE'
         const selCount = document.getElementById('selCount');
 
         const send360Btn = document.getElementById('send360LeadsBtn');
-        const send360Count = document.getElementById('send360LeadsCount');
+        const LEADS_LABEL = 'Leads';
 
-        const send360Response = document.getElementById('send360LeadsResponse');
-        const send360Message = document.getElementById('send360LeadsMessage');
-        const send360Details = document.getElementById('send360LeadsDetails');
+        // campaign_id -> result label, for ALL rows (works across pages and filters)
+        const labelById = new Map();
+        dt.rows().nodes().toArray().forEach(tr => {
+            const cb = tr.querySelector('.cmp-check');
+            if (cb && cb.value) labelById.set(cb.value, cb.dataset.label);
+        });
+
+        // Selected IDs that are eligible for 360 Leads
+        const leadIds = () => Array.from(selectedIds)
+            .filter(id => labelById.get(id) === LEADS_LABEL);
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        } [ch]));
 
         const syncSelectionUi = () => {
-
-            // Existing PDF selection
+            // PDF export: any selected campaign
             selCount.textContent = selectedIds.size;
             exportBtn.disabled = selectedIds.size === 0;
 
-            // 360 Leads selection
-            document.getElementById('send360LeadsCount').textContent = selectedIds.size;
-
-            send360Btn.hidden = selectedIds.size === 0;
-            send360Btn.disabled = selectedIds.size === 0;
+            // 360 Leads: only "Leads" campaigns
+            const leadCount = leadIds().length;
+            document.getElementById('send360LeadsCount').textContent = leadCount;
+            send360Btn.hidden = leadCount === 0;
+            send360Btn.disabled = leadCount === 0;
 
             // Header checkbox reflects filtered rows
             const boxes = dt.rows({
@@ -738,16 +753,9 @@ return $eff === 'ACTIVE'
                 }).nodes().toArray()
                 .map(tr => tr.querySelector('.cmp-check'))
                 .filter(cb => cb && !cb.disabled);
-
-            const checked = boxes.filter(
-                cb => selectedIds.has(cb.value)
-            ).length;
-
-            selectAll.checked =
-                boxes.length > 0 && checked === boxes.length;
-
-            selectAll.indeterminate =
-                checked > 0 && checked < boxes.length;
+            const checked = boxes.filter(cb => selectedIds.has(cb.value)).length;
+            selectAll.checked = boxes.length > 0 && checked === boxes.length;
+            selectAll.indeterminate = checked > 0 && checked < boxes.length;
         };
 
         // restore checked state whenever DataTables redraws (paging, sort, filter)
@@ -793,26 +801,23 @@ return $eff === 'ACTIVE'
             });
         });
 
-        // Send selected campaigns to 360 Leads using SweetAlert2
         send360Btn.addEventListener('click', async function() {
+            const campaignIds = leadIds();
+            const skipped = selectedIds.size - campaignIds.length;
 
-            if (selectedIds.size === 0) {
+            if (campaignIds.length === 0) {
                 Swal.fire({
-                    title: 'No campaigns selected',
-                    text: 'Please select at least one campaign.',
+                    title: 'No lead campaigns selected',
+                    text: 'Only campaigns with the "Leads" result type can be sent to 360 Leads.',
                     icon: 'warning',
-                    confirmButtonText: 'OK',
                     confirmButtonColor: '#f7921e'
                 });
                 return;
             }
 
-            const campaignIds = Array.from(selectedIds);
-
-            // Confirmation popup
             const confirmation = await Swal.fire({
                 title: 'Send campaigns to 360 Leads?',
-                html: `Are you sure you want to send <strong>${campaignIds.length}</strong> selected campaign(s) to 360 Leads?`,
+                html: `Send <strong>${campaignIds.length}</strong> lead campaign(s) to 360 Leads?`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Send',
@@ -822,150 +827,107 @@ return $eff === 'ACTIVE'
                 reverseButtons: true,
                 allowOutsideClick: false
             });
+            if (!confirmation.isConfirmed) return;
 
-            if (!confirmation.isConfirmed) {
-                return;
-            }
+            const csrfToken = document.querySelector('#exportSelectedForm input[name="_token"]').value;
 
-            const csrfToken = document.querySelector(
-                '#exportSelectedForm input[name="_token"]'
-            ).value;
-
+            const originalHtml = send360Btn.innerHTML;
             send360Btn.disabled = true;
             send360Btn.textContent = 'Sending campaigns...';
 
-            // Loading popup
             Swal.fire({
                 title: 'Sending campaigns...',
-                html: 'Please wait while the selected campaigns are sent to 360 Leads.',
+                html: 'Please wait while the selected campaigns are sent.',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
+                didOpen: () => Swal.showLoading()
             });
 
             try {
+                const response = await fetch(@json(route('meta-catalog.send-to-360-leads')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        campaign_ids: campaignIds
+                    })
+                });
 
-                const response = await fetch(
-                    @json(route('meta-catalog.send-to-360-leads')), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify({
-                            campaign_ids: campaignIds
-                        })
-                    }
-                );
+                const result = await response.json().catch(() => null);
 
-                const result = await response.json();
-
-                // Save response details
-                send360Response.style.display = 'block';
-                send360Message.textContent = result.message || '';
-                send360Details.textContent = JSON.stringify(result, null, 4);
+                if (!result) {
+                    await Swal.fire({
+                        title: 'Unexpected response',
+                        text: `Server returned HTTP ${response.status} with a non-JSON body (session expired?).`,
+                        icon: 'error',
+                        confirmButtonColor: '#f7921e'
+                    });
+                    return;
+                }
 
                 const successful = Number(result.successful || 0);
                 const failed = Number(result.failed || 0);
+                const apiNames = (result.configured_apis || []).join(' & ') || '360 Leads';
 
-                // Complete success
+                const sentIds = (result.sent_campaigns || []).map(i => String(i.campaign_id));
+                const failedIds = (result.failed_campaigns || []).map(i => String(i.campaign_id));
+
+                // Un-select only what was sent; keep failed (and non-lead) selections
+                sentIds.forEach(id => selectedIds.delete(id));
+                $('#campaignTable .cmp-check').each(function() {
+                    this.checked = selectedIds.has(this.value);
+                });
+
                 if (response.ok && result.success === true && failed === 0) {
-
-                    selectedIds.clear();
-
-                    $('#campaignTable .cmp-check').prop('checked', false);
-
-                    selectAll.checked = false;
-                    selectAll.indeterminate = false;
-
-                    syncSelectionUi();
+                    const list = (result.sent_campaigns || [])
+                        .map(c => `<li>${esc(c.campaign_name)}</li>`).join('');
 
                     await Swal.fire({
                         title: 'Successfully Sent!',
                         html: `
-                    <p>${result.message || 'Campaigns successfully sent to 360 Leads.'}</p>
-                    <p><strong>${successful || campaignIds.length}</strong> campaign(s) sent successfully.</p>
-                `,
+                    <p><strong>${successful}</strong> campaign(s) sent to <strong>${esc(apiNames)}</strong>.</p>`,
                         icon: 'success',
                         confirmButtonText: 'OK',
                         confirmButtonColor: '#f7921e'
                     });
-
-                }
-
-                // Partial success
-                else if (successful > 0 || response.status === 207) {
+                } else if (successful > 0 || response.status === 207) {
+                    const failList = (result.failed_campaigns || []).map(c => {
+                        const bad = (c.api_results || []).filter(r => !r.success).map(r => r.api_name).join(', ');
+                        return `<li>${esc(c.campaign_name || c.campaign_id)}${bad ? ' (' + esc(bad) + ')' : ''}</li>`;
+                    }).join('');
 
                     await Swal.fire({
-                        title: 'Partially Completed',
+                        title: 'These campaigns have already been sent.',
                         html: `
-                    <p>${result.message || 'Some campaigns were sent successfully.'}</p>
-                    <p><strong>Successful:</strong> ${successful}</p>
-                    <p><strong>Failed:</strong> ${failed}</p>
-                `,
+                    <ul style="text-align:left;max-height:140px;overflow:auto;margin:10px 0 0 18px;font-size:13px;">${failList}</ul>`,
                         icon: 'warning',
                         confirmButtonText: 'OK',
                         confirmButtonColor: '#f7921e'
                     });
-
-                    // Keep failed campaign IDs selected for retry.
-                    const failedIds = (result.failed_campaigns || [])
-                        .map(item => String(item.campaign_id));
-
-                    if (failedIds.length > 0) {
-                        selectedIds.clear();
-                        failedIds.forEach(id => selectedIds.add(id));
-                    } else {
-                        selectedIds.clear();
-                    }
-
-                    $('#campaignTable .cmp-check').each(function() {
-                        this.checked = selectedIds.has(this.value);
-                    });
-
-                    syncSelectionUi();
-                }
-
-                // API error / complete failure
-                else {
-
+                } else {
                     await Swal.fire({
                         title: 'Failed to Send Campaigns',
-                        text: result.message || result.error || 'Unable to send campaigns to 360 Leads.',
+                        text: result.message || result.error || 'Unable to send campaigns.',
                         icon: 'error',
                         confirmButtonText: 'Try Again',
                         confirmButtonColor: '#f7921e'
                     });
-
                 }
-
             } catch (error) {
-
                 console.error('360 Leads API Error:', error);
-
                 await Swal.fire({
-                    title: 'Connection Error',
-                    text: 'Unable to connect to 360 Leads. Please check your internet connection and try again.',
+                    title: 'Request failed',
+                    text: 'Error: ' + error.message,
                     icon: 'error',
-                    confirmButtonText: 'OK',
                     confirmButtonColor: '#f7921e'
                 });
-
             } finally {
-
-                send360Btn.disabled = false;
-
-                // Restore button and selected count
-                send360Btn.innerHTML =
-                    'Send to 360 Leads (<span id="send360LeadsCount">' +
-                    selectedIds.size +
-                    '</span>)';
-
+                send360Btn.innerHTML = originalHtml;
                 syncSelectionUi();
             }
         });

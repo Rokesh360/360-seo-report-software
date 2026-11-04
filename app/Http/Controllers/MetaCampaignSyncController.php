@@ -136,28 +136,49 @@ class MetaCampaignSyncController extends Controller
     }
 
 
+
     public function sendSelectedTo360Leads(Request $request)
     {
+        // 1. Validate selected campaign IDs
         $validated = $request->validate([
             'campaign_ids' => ['required', 'array', 'min:1', 'max:100'],
             'campaign_ids.*' => [
                 'required',
                 'string',
                 'regex:/^\d+$/',
-                'distinct'
+                'distinct',
             ],
         ]);
 
+        // 2. Get Meta API configuration
         $accessToken = config('services.meta.access_token');
         $version = config('services.meta.api_version');
 
-        $customerUrl = config('services.customer_campaign.url');
-        $customerApiKey = config('services.customer_campaign.api_key');
+        // 3. Get all customer API configurations
+        $customerApis = config('services.customer_campaign', []);
 
-        if (!$accessToken || !$version || !$customerUrl || !$customerApiKey) {
+        // Keep only APIs with valid URL and API key
+        $customerApis = array_values(array_filter(
+            $customerApis,
+            function ($api) {
+                return is_array($api)
+                    && !empty($api['url'])
+                    && !empty($api['api_key']);
+            }
+        ));
+
+        // 4. Validate API configurations
+        if (empty($accessToken) || empty($version) || empty($customerApis)) {
+
+            Log::error('Missing API configuration for Meta or Customer Campaign API', [
+                'meta_access_token' => !empty($accessToken) ? 'present' : 'missing',
+                'meta_version' => !empty($version) ? 'present' : 'missing',
+                'customer_apis_configured' => count($customerApis),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Required API configuration is missing.',
+                'message' => 'Required API configuration is missing. Check Meta and Customer Campaign API settings.',
             ], 500);
         }
 
@@ -165,9 +186,11 @@ class MetaCampaignSyncController extends Controller
         $failed = [];
 
         try {
+
+            // 5. Process each selected campaign
             foreach ($validated['campaign_ids'] as $campaignId) {
 
-                // 1. Get latest campaign details from Meta
+                // Fetch latest campaign details from Meta
                 $metaResponse = Http::withToken($accessToken)
                     ->acceptJson()
                     ->timeout(30)
@@ -178,12 +201,19 @@ class MetaCampaignSyncController extends Controller
                         ]
                     );
 
+                // Check Meta API response
                 if (!$metaResponse->successful()) {
+
+                    Log::error('Meta Campaign Fetch Error', [
+                        'campaign_id' => $campaignId,
+                        'http_status' => $metaResponse->status(),
+                        'response' => $metaResponse->body(),
+                    ]);
 
                     $failed[] = [
                         'campaign_id' => $campaignId,
                         'message' => 'Unable to retrieve campaign from Meta.',
-                        'meta_response' => $metaResponse->json(),
+                        'meta_response' => $metaResponse->json() ?? $metaResponse->body(),
                     ];
 
                     continue;
@@ -191,7 +221,21 @@ class MetaCampaignSyncController extends Controller
 
                 $campaign = $metaResponse->json();
 
-                // 2. Prepare only required campaign fields
+                // Validate campaign response
+                if (
+                    empty($campaign['id']) ||
+                    !isset($campaign['name']) ||
+                    !isset($campaign['status'])
+                ) {
+                    $failed[] = [
+                        'campaign_id' => $campaignId,
+                        'message' => 'Invalid campaign data received from Meta.',
+                    ];
+
+                    continue;
+                }
+
+                // 6. Prepare campaign payload
                 $payload = [
                     'campaign_id' => (string) $campaign['id'],
                     'campaign_name' => $campaign['name'],
@@ -199,65 +243,109 @@ class MetaCampaignSyncController extends Controller
                     'platform' => 'META',
                 ];
 
-                // 3. Send campaign to 360 Leads API
-                $customerResponse = Http::withHeaders([
-                    'X-API-KEY' => $customerApiKey,
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
-                    ->timeout(30)
-                    ->post($customerUrl, $payload);
+                $apiResults = [];
 
-                if ($customerResponse->successful()) {
+                // 7. Send campaign to every configured customer API
+                foreach ($customerApis as $api) {
 
-                    $sent[] = [
-                        'campaign_id' => $campaign['id'],
-                        'campaign_name' => $campaign['name'],
-                        'campaign_status' => $campaign['status'],
-                        'http_status' => $customerResponse->status(),
-                        'customer_response' => $customerResponse->json()
-                            ?? $customerResponse->body(),
-                    ];
+                    $apiName = $api['name'] ?? 'Customer API';
+
+                    try {
+
+                        $customerResponse = Http::withHeaders([
+                            'X-API-KEY' => $api['api_key'],
+                            'Accept' => 'application/json',
+                            'Content-Type' => 'application/json',
+                        ])
+                            ->timeout(30)
+                            ->post($api['url'], $payload);
+
+                        $responseData = $customerResponse->json();
+
+                        $apiResults[] = [
+                            'api_name' => $apiName,
+                            'success' => $customerResponse->successful(),
+                            'http_status' => $customerResponse->status(),
+                            'response' => $responseData ?? $customerResponse->body(),
+                        ];
+
+                        if (!$customerResponse->successful()) {
+
+                            Log::error('Customer Campaign API Error', [
+                                'api_name' => $apiName,
+                                'campaign_id' => $campaign['id'],
+                                'http_status' => $customerResponse->status(),
+                                'response' => $customerResponse->body(),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+
+                        Log::error('Customer Campaign API Exception', [
+                            'api_name' => $apiName,
+                            'campaign_id' => $campaign['id'],
+                            'message' => $e->getMessage(),
+                        ]);
+
+                        $apiResults[] = [
+                            'api_name' => $apiName,
+                            'success' => false,
+                            'message' => 'Unable to connect to customer API.',
+                        ];
+                    }
+                }
+
+                // 8. Check whether all APIs accepted the campaign
+                $allApisSuccessful = count($apiResults) === count($customerApis)
+                    && count(array_filter(
+                        $apiResults,
+                        fn($result) => $result['success'] === true
+                    )) === count($customerApis);
+
+                $campaignResult = [
+                    'campaign_id' => $campaign['id'],
+                    'campaign_name' => $campaign['name'],
+                    'campaign_status' => $campaign['status'],
+                    'api_results' => $apiResults,
+                ];
+
+                if ($allApisSuccessful) {
+                    $sent[] = $campaignResult;
                 } else {
-
-                    $failed[] = [
-                        'campaign_id' => $campaign['id'],
-                        'campaign_name' => $campaign['name'],
-                        'campaign_status' => $campaign['status'],
-                        'http_status' => $customerResponse->status(),
-                        'customer_response' => $customerResponse->json()
-                            ?? $customerResponse->body(),
-                    ];
-
-                    Log::error('360 Leads Campaign API Error', [
-                        'campaign_id' => $campaign['id'],
-                        'status' => $customerResponse->status(),
-                        'response' => $customerResponse->body(),
-                    ]);
+                    $failed[] = $campaignResult;
                 }
             }
 
+            // 9. Return final response
+            $totalCampaigns = count($validated['campaign_ids']);
+            $successfulCount = count($sent);
+            $failedCount = count($failed);
+
             return response()->json([
-                'success' => empty($failed),
-                'message' => empty($failed)
-                    ? 'Selected campaigns sent to 360 Leads successfully.'
+                'success' => $failedCount === 0,
+                'message' => $failedCount === 0
+                    ? 'Selected campaigns sent to all customer APIs successfully.'
                     : 'Campaign sending completed with some failures.',
-                'total_campaigns' => count($validated['campaign_ids']),
-                'successful' => count($sent),
-                'failed' => count($failed),
+                'total_campaigns' => $totalCampaigns,
+                'successful' => $successfulCount,
+                'failed' => $failedCount,
+                'configured_apis' => array_map(
+                    fn($api) => $api['name'] ?? 'Customer API',
+                    $customerApis
+                ),
                 'sent_campaigns' => $sent,
                 'failed_campaigns' => $failed,
-            ], empty($failed) ? 200 : 207);
+            ], $failedCount === 0 ? 200 : 207);
         } catch (\Throwable $e) {
 
-            Log::error('360 Leads Campaign Sync Exception', [
+            Log::error('Customer Campaign Sync Exception', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to send campaigns to 360 Leads.',
-                'error' => $e->getMessage(),
+                'message' => 'Unable to send campaigns to customer APIs.',
             ], 500);
         }
     }
