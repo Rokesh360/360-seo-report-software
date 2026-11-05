@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\AssignService;
 use App\Models\GoogleAdsReport;
-use App\Support\ReportServiceType;
+use App\Support\Helpers;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -42,7 +42,7 @@ class GoogleAdsReportRequest extends FormRequest
 
         $assignment = AssignService::find((int) $this->input('assign_service_id'));
         $googleAdsTypes = collect($assignment?->getServices() ?? [])
-            ->map(fn($service) => ReportServiceType::googleAdsTypeFromServiceName($service->name))
+            ->map(fn($service) => Helpers::googleAdsTypeFromServiceName($service->name))
             ->filter()
             ->values();
 
@@ -72,7 +72,7 @@ class GoogleAdsReportRequest extends FormRequest
             }
 
             $isGoogleAds = $assignment && $assignment->getServices()
-                ->contains(fn($service) => ReportServiceType::googleAdsTypeFromServiceName($service->name) !== null);
+                ->contains(fn($service) => Helpers::googleAdsTypeFromServiceName($service->name) !== null);
 
             if (! $isGoogleAds) {
                 $validator->errors()->add('assign_service_id', 'Select an assignment with a Google Ads service.');

@@ -162,7 +162,7 @@
     </div>
 
     <div>
-        <h1>{{ \App\Support\ReportServiceType::label($serviceType) }} Campaign Report</h1>
+        <h1>{{ \App\Support\Helpers::label($serviceType) }} Campaign Report</h1>
         <div class="subtitle">{{ $assignment->client?->name }} · Reporting period: {{ $assignment->from_date?->format('d M Y') }} — {{ $assignment->to_date?->format('d M Y') }}</div>
 
         <h2>1. Campaign Overview</h2>

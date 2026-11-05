@@ -264,7 +264,7 @@
             (int) $r->total_conversations + (int) $r->total_leads + (int) $r->total_engagement
         )->values()->all();
 
-        $trendSrc = \App\Support\ReportCharts::lineChart($trendLabels, $trendValues);
+        $trendSrc = \App\Support\Helpers::lineChart($trendLabels, $trendValues);
     }
 @endphp
 
@@ -350,7 +350,7 @@
         ];
         $engagementSlices = array_filter($engagementSlices, static fn ($value) => $value > 0);
         $engagementTotal  = array_sum($engagementSlices);
-        $engagementColors = \App\Support\ReportCharts::PALETTE;
+        $engagementColors = \App\Support\Helpers::PALETTE;
 
         $graphMetrics = [];
         if ($showWhatsApp) {
@@ -378,8 +378,8 @@
             ];
         }
 
-        $barSrc = \App\Support\ReportCharts::barGraph($graphMetrics);
-        $pieSrc = $showEngagement ? \App\Support\ReportCharts::pie($engagementSlices) : null;
+        $barSrc = \App\Support\Helpers::barGraph($graphMetrics);
+        $pieSrc = $showEngagement ? \App\Support\Helpers::pie($engagementSlices) : null;
 
         $assignService = $reportAssignService;
         $obs       = $assignService?->key_observations ?? [];

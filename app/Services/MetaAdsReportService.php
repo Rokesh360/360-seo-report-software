@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Support\MetaAdsReportHelper;
+use App\Support\Helpers;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -17,8 +17,8 @@ class MetaAdsReportService
         $prevTo   = $from->copy()->subDay();
         $prevFrom = $prevTo->copy()->subDays($days - 1);
 
-        $current  = MetaAdsReportHelper::summarise($from, $to);
-        $previous = MetaAdsReportHelper::summarise($prevFrom, $prevTo);
+        $current  = Helpers::summariseMetaAds($from, $to);
+        $previous = Helpers::summariseMetaAds($prevFrom, $prevTo);
 
         return [
             'currency'          => $current['currency'],

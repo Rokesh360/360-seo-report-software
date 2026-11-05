@@ -16,7 +16,7 @@ $images = $report?->overview_images ?? [];
 $serviceNames = $assignService->getServices()->pluck('name');
 
 $serviceTypes = $serviceNames
-->map(fn ($name) => \App\Support\ReportServiceType::googleAdsTypeFromServiceName($name))
+->map(fn ($name) => \App\Support\Helpers::googleAdsTypeFromServiceName($name))
 ->filter()
 ->unique()
 ->values();

@@ -6,7 +6,7 @@ use App\Http\Requests\GoogleAdsReportRequest;
 use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\GoogleAdsReport;
-use App\Support\ReportServiceType;
+use App\Support\Helpers;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -166,7 +166,7 @@ class GoogleAdsReportController extends Controller
     private function googleAdsServices(AssignService $assignment): Collection
     {
         return $assignment->getServices()
-            ->map(fn ($service) => ReportServiceType::googleAdsTypeFromServiceName($service->name))
+            ->map(fn ($service) => Helpers::googleAdsTypeFromServiceName($service->name))
             ->filter()
             ->unique()
             ->values();

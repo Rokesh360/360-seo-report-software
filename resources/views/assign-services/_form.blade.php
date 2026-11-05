@@ -29,7 +29,7 @@ $reportTypeByServiceName = [
 ];
 $reportTypesByServiceId = $services->mapWithKeys(fn ($service) => [
 $service->id => $reportTypeByServiceName[$service->name]
-?? \App\Support\ReportServiceType::googleAdsTypeFromServiceName($service->name)
+?? \App\Support\Helpers::googleAdsTypeFromServiceName($service->name)
 ?? '',
 ]);
 $selectedReportTypes = collect($selectedServiceIds)

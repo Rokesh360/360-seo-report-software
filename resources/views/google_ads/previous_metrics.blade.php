@@ -17,10 +17,10 @@
     $available = $spent !== null ? $budget - $spent : null;
 
     $typeLabel = $assignService->getServices()
-        ->map(fn ($service) => \App\Support\ReportServiceType::googleAdsTypeFromServiceName($service->name))
+        ->map(fn ($service) => \App\Support\Helpers::googleAdsTypeFromServiceName($service->name))
         ->filter()
         ->unique()
-        ->map(fn ($type) => \App\Support\ReportServiceType::label($type))
+        ->map(fn ($type) => \App\Support\Helpers::label($type))
         ->implode(' + ');
 @endphp
 
