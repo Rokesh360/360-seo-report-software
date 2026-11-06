@@ -127,14 +127,17 @@
             font-size: 9px;
         }
 
-        .image-grid td {
-            width: 50%;
+        .overview-image {
+            page-break-inside: avoid;
             text-align: center;
+            margin-bottom: 12px;
         }
 
-        .image-grid img {
-            max-width: 100%;
-            max-height: 290px;
+        .overview-image img {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+            height: auto;
         }
     </style>
 </head>
@@ -166,19 +169,14 @@
         <div class="subtitle">{{ $assignment->client?->name }} · Reporting period: {{ $assignment->from_date?->format('d M Y') }} — {{ $assignment->to_date?->format('d M Y') }}</div>
 
         <h2>1. Campaign Overview</h2>
-        <table class="image-grid">
-            @foreach(array_chunk($googleAdsReport->overview_images ?? [], 2) as $imageRow)
-            <tr>
-                @foreach($imageRow as $image)
-                <td>
-                    @php $imageFile = \Illuminate\Support\Facades\Storage::disk('public')->path($image); @endphp
-                    @if(is_file($imageFile))<img src="{{ $imageFile }}" alt="Campaign overview screenshot">@endif
-                </td>
-                @endforeach
-                @if(count($imageRow) === 1)<td></td>@endif
-            </tr>
-            @endforeach
-        </table>
+        @foreach($googleAdsReport->overview_images ?? [] as $image)
+            @php $imageFile = \Illuminate\Support\Facades\Storage::disk('public')->path($image); @endphp
+            @if(is_file($imageFile))
+                <div class="overview-image">
+                    <img src="{{ $imageFile }}" alt="Campaign overview screenshot">
+                </div>
+            @endif
+        @endforeach
 
         <h2>Campaign Performance</h2>
         <table class="kpis">
