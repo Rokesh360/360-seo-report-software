@@ -4,8 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SocialMediaReportRequest;
 use App\Models\AssignService;
-use App\Models\Service;
 use App\Models\Client;
+use App\Models\GstMaster;
+use App\Models\Service;
 use App\Models\SocialMediaReport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
@@ -14,6 +15,16 @@ use Illuminate\Http\Request;
 
 class SocialMediaReportController extends Controller
 {
+    private function gstPercentage(): ?float
+    {
+        $percentage = GstMaster::query()
+            ->where('status', true)
+            ->latest('id')
+            ->value('percentage');
+
+        return $percentage === null ? null : (float) $percentage;
+    }
+
     private function parseAmount(mixed $value): float
     {
         // "₹5,000.50" → 5000.50
@@ -26,12 +37,28 @@ class SocialMediaReportController extends Controller
 
         $spent = collect($report->campaign_results ?? [])
             ->sum(fn($row) => $this->parseAmount($row['spend'] ?? 0));
+        $gstPercentage = $this->gstPercentage();
+        $gstAmount = $gstPercentage === null ? 0 : round($spent * $gstPercentage / 100, 2);
+        $spentIncludingGst = $spent + $gstAmount;
 
         return [
-            'budget'    => $budget,
-            'spent'     => $spent,
-            'available' => $budget - $spent,
+            'budget'              => $budget,
+            'spent'               => $spent,
+            'gst_percentage'      => $gstPercentage,
+            'gst_amount'          => $gstAmount,
+            'spent_including_gst' => $spentIncludingGst,
+            'available'           => $budget - $spentIncludingGst,
         ];
+    }
+
+    private function spendSummariesFor($reports): array
+    {
+        $out = [];
+        foreach ($reports as $report) {
+            $report->loadMissing('assignService');
+            $out[$report->id] = $this->spendSummary($report);
+        }
+        return $out;
     }
 
     private function reportTypesFor($reports, array $assignServices): array
@@ -49,7 +76,7 @@ class SocialMediaReportController extends Controller
             $assignment = $assignServices[(int) $report->assign_service_id] ?? null;
             $serviceIds = $assignment?->service_id;
             $types = collect(is_array($serviceIds) ? $serviceIds : array_filter([(int) $serviceIds]))
-                ->map(fn ($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
+                ->map(fn($sid) => $nameToType[$serviceNames[$sid] ?? ''] ?? null)
                 ->filter()
                 ->unique()
                 ->values()
@@ -67,8 +94,8 @@ class SocialMediaReportController extends Controller
     public function index()
     {
         $clients = Client::withCount([
-                'assignServices' => fn ($q) => $q->forSocialReports(),
-            ])
+            'assignServices' => fn($q) => $q->forSocialReports(),
+        ])
             ->orderBy('name')
             ->get();
 
@@ -134,6 +161,7 @@ class SocialMediaReportController extends Controller
         return view('social_media_reports.previous_metrics', [
             'assignService' => $assignService,
             'rows'          => $rows,
+            'gstPercentage' => $this->gstPercentage(),
         ]);
     }
 
@@ -182,7 +210,11 @@ class SocialMediaReportController extends Controller
 
         $assignServices = AssignService::forSocialReports()->orderBy('id')->get();
 
-        return view('social_media_reports.create', compact('assignServices', 'prefillId'));
+        return view('social_media_reports.create', [
+            'assignServices' => $assignServices,
+            'prefillId'      => $prefillId,
+            'gstPercentage'  => $this->gstPercentage(),
+        ]);
     }
 
     public function store(SocialMediaReportRequest $request)
@@ -206,6 +238,7 @@ class SocialMediaReportController extends Controller
         return view('social_media_reports.edit', [
             'report'         => $metricsReport,
             'assignServices' => $assignServices,
+            'gstPercentage'  => $this->gstPercentage(),
         ]);
     }
 
@@ -272,6 +305,7 @@ class SocialMediaReportController extends Controller
             'single'      => false,
             'filters'     => $request->only(['from', 'to']),
             'assignServices' => $this->assignServicesFor($reports),
+            'spendSummaries' => $this->spendSummariesFor($reports), 
         ])
             ->setPaper('a4', 'portrait')
             ->setOption(['isHtml5ParserEnabled' => true]);
@@ -351,6 +385,7 @@ class SocialMediaReportController extends Controller
             ],
             'assignServices' => $assignServices,
             'reportTypes'    => $this->reportTypesFor($reports, $assignServices),
+            'spendSummaries' => $this->spendSummariesFor($reports),
         ])
             ->setPaper('a4', 'portrait')
             ->setOption(['isHtml5ParserEnabled' => true]);

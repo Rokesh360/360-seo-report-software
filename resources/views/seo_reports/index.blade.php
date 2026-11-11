@@ -13,7 +13,7 @@
         <div>
             <div class="eyebrow">
                 <span class="status-dot status-dot-dark"></span>
-                REPORT LIBRARY
+                REPORTS
             </div>
 
             <h1>SEO monthly reports</h1>

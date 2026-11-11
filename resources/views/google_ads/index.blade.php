@@ -6,7 +6,7 @@
 <div class="dashboard-content report-content">
     <section class="page-heading report-page-heading">
         <div>
-            <div class="eyebrow"><span class="status-dot status-dot-dark"></span> REPORT LIBRARY</div>
+            <div class="eyebrow"><span class="status-dot status-dot-dark"></span> REPORTS </div>
             <h1>Google Ads reports</h1>
             <p class="page-subtitle">Select a client to view their Google Ads assignments and reports.</p>
         </div>

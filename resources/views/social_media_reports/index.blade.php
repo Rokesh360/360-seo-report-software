@@ -8,7 +8,7 @@
         <div>
             <div class="eyebrow">
                 <span class="status-dot status-dot-dark"></span>
-                REPORT LIBRARY
+                REPORTS
             </div>
             <h1>Select a client</h1>
             <p class="page-subtitle">

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoogleAdsReportController;
+use App\Http\Controllers\GstMasterController;
 use App\Http\Controllers\MetaCatalogController;
 use App\Http\Controllers\SeoReportController;
 use App\Http\Controllers\ServiceController;
@@ -95,6 +96,13 @@ Route::middleware('auth')->group(function () {
      |  Services
      ============================================================ */
     Route::resource('services', ServiceController::class);
+
+    /* ============================================================
+     |  GST
+     ============================================================ */
+    Route::resource('gst-masters', GstMasterController::class)
+    ->parameters(['gst-masters' => 'gstMaster'])
+    ->except('show');
 
     /* ============================================================
      |  Assign Services

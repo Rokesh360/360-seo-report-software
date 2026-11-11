@@ -18,9 +18,23 @@
                     <td><strong>₹{{ number_format($s['budget']) }}</strong></td>
                 </tr>
                 <tr>
-                    <td style="padding:4px 14px 4px 0;">Amount spent</td>
+                    <td style="padding:4px 14px 4px 0;">Amount spent (excl. GST)</td>
                     <td><strong>₹{{ number_format($s['spent']) }}</strong></td>
                 </tr>
+                @if($s['gst_percentage'] !== null)
+                <tr>
+                    <td style="padding:4px 14px 4px 0;">GST ({{ rtrim(rtrim(number_format((float) $s['gst_percentage'], 2), '0'), '.') }}%)</td>
+                    <td><strong>₹{{ number_format($s['gst_amount']) }}</strong></td>
+                </tr>
+                <tr>
+                    <td style="padding:4px 14px 4px 0;">Amount spent (incl. GST)</td>
+                    <td><strong>₹{{ number_format($s['spent_including_gst']) }}</strong></td>
+                </tr>
+                @else
+                <tr>
+                    <td colspan="2" style="padding:4px 14px 4px 0;">GST rate not configured; total excludes GST.</td>
+                </tr>
+                @endif
                 <tr>
                     <td style="padding:4px 14px 4px 0;">Available</td>
                     <td><strong style="color:{{ $over ? '#d33' : '#16a34a' }};">

@@ -8,6 +8,7 @@ use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\Service;
 use App\Repositories\AssignServiceRepository;
+use App\Support\Helpers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,45 +19,6 @@ class AssignServiceController extends Controller
         protected AssignServiceRepository $repository
     ) {
         //
-    }
-
-    private function campaignOptions()
-    {
-        return MetaAdsDailyStat::query()
-            ->whereDate('report_date', now()->toDateString())
-            ->selectRaw('campaign_id, MAX(campaign_name) as campaign_name,
-         SUM(leads) as total_leads,
-         SUM(messaging_conversations) as total_msgs,
-         SUM(spend) as total_spend')
-            ->groupBy('campaign_id')
-            ->orderBy('campaign_name')
-            ->get()
-            ->map(function ($c) {
-                $name  = strtolower($c->campaign_name ?? '');
-                $types = [];
-
-                if (preg_match('/whats\s?app|\bwa\b/', $name)) {
-                    $types[] = 'whatsapp_meta_ads';
-                }
-                if (str_contains($name, 'lead')) {
-                    $types[] = 'lead_generation_ads';
-                }
-                if (str_contains($name, 'engagement')) {
-                    $types[] = 'social_media_engagement';
-                }
-
-                // Name gave no hint: fall back to what the campaign actually produced
-                if (! $types) {
-                    if ($c->total_leads > 0) {
-                        $types[] = 'lead_generation_ads';
-                    } elseif ($c->total_msgs > 0) {
-                        $types[] = 'whatsapp_meta_ads';
-                    }
-                }
-
-                $c->types = $types;
-                return $c;
-            });
     }
 
     /** Keep campaign_ids only if a selected service supports campaigns. */
@@ -106,7 +68,7 @@ class AssignServiceController extends Controller
         return view('assign-services.create', [
             'client'           => $client,
             'services'         => Service::orderBy('name')->get(),
-            'campaigns'        => $this->campaignOptions(),
+            'campaigns'        => Helpers::campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $clientId,
         ]);
@@ -143,7 +105,7 @@ class AssignServiceController extends Controller
             'assignService'    => $assignService,
             'client'           => $assignService->client,
             'services'         => Service::orderBy('name')->get(),
-            'campaigns'        => $this->campaignOptions(),
+            'campaigns'        => Helpers::campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $assignService->client_id,
         ]);

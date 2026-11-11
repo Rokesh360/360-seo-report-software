@@ -7,6 +7,8 @@
 use Illuminate\Support\Str;
 
 $fmt = fn ($v, $d = 2) => number_format((float) $v, $d);
+$gstRate = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
+$withGst = fn ($v) => (float) $v * (1 + $gstRate);
 
 // Default filter = today
 $currentRange = $filters['range'] ?? 'today';
@@ -241,15 +243,23 @@ return $eff === 'ACTIVE'
     <section class="metric-grid" style="margin-top:14px;">
         <article class="metric-card">
             <div class="metric-top">
-                <span>Total spend</span>
+                <span>Spend (incl. GST)</span>
                 <span class="metric-icon metric-icon-green">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 5h14M5 9h14M5 5h6a4 4 0 0 1 0 8H5l9 8" />
                     </svg>
                 </span>
             </div>
-            <div class="metric-value">{{ $currency }} {{ $fmt($spend) }}</div>
-            <div class="metric-foot"><span>CPC {{ $currency }} {{ $fmt($cpc) }}</span></div>
+            <div class="metric-value">{{ $currency }} {{ $fmt($spend * (1 + (float) $gstPercentage / 100)) }}</div>
+            <div class="metric-foot" style="flex-wrap:wrap;white-space:normal;">
+                <span>CPC {{ $currency }} {{ $fmt($cpc) }}</span>
+                @if($gstPercentage !== null)
+                <span>GST ({{ rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') }}%): {{ $currency }} {{ $fmt($spend * (float) $gstPercentage / 100) }}</span>
+                @else
+                <span>GST rate not configured; total excludes GST.</span>
+                @endif
+            </div>
             <div class="metric-spark spark-green">
                 @foreach($spark($dailySpend) as $h)<span style="height:{{ $h }}%"></span>@endforeach
             </div>
@@ -518,7 +528,7 @@ return $eff === 'ACTIVE'
                             <input type="checkbox" id="selectAllCampaigns" title="Select all (filtered)">
                         </th>
                         <th>Campaign</th>
-                        <th>Spend</th>
+                        <th>Spend (incl. GST)</th>
                         <th>Impressions</th>
                         <th>Clicks</th>
                         <th>CTR</th>
@@ -530,12 +540,13 @@ return $eff === 'ACTIVE'
                     @foreach($campaigns as $c)
                     @php
                     $cs = (float) ($c['spend'] ?? 0);
+                    $csGst = $withGst($cs);
                     $ci = (float) ($c['impressions'] ?? 0);
                     $cc = (float) ($c['clicks'] ?? 0);
                     $primary = $primaryResult($c);
                     $resLabel = $primary['label'] ?? 'No results';
                     $resValue = $primary['value'] ?? 0;
-                    $costPerResult = $resValue > 0 ? $cs / $resValue : null;
+                    $costPerResult = $resValue > 0 ? $csGst / $resValue : null;
                     $cur = $c['account_currency'] ?? '';
                     $eff = $c['effective_status'] ?? null;
                     [$badgeText, $badgeClass] = $statusBadge($eff);
@@ -550,13 +561,18 @@ return $eff === 'ACTIVE'
                             <span class="keyword-name">{{ $c['campaign_name'] ?? '-' }}</span>
                             <span class="keyword-url">{{ $c['campaign_id'] ?? '' }}</span>
                         </td>
-                        <td data-order="{{ $cs }}">{{ $cur }} {{ $fmt($cs) }}</td>
+                        <td data-order="{{ $csGst }}">
+                            {{ $cur }} {{ $fmt($csGst) }}
+                            @if($gstPercentage !== null)
+                            <span class="keyword-url">Excl. GST: {{ $cur }} {{ $fmt($cs) }}</span>
+                            @endif
+                        </td>
                         <td data-order="{{ $ci }}">{{ $fmt($ci, 0) }}</td>
                         <td data-order="{{ $cc }}">{{ $fmt($cc, 0) }}</td>
                         <td data-order="{{ $ci > 0 ? $cc / $ci * 100 : 0 }}">{{ $ci > 0 ? $fmt($cc / $ci * 100) . '%' : '-' }}</td>
                         <td data-order="{{ $resValue }}"
                             data-label="{{ $resLabel }}"
-                            data-spend="{{ $cs }}"
+                            data-spend="{{ $csGst }}"
                             data-results="{{ $resValue }}"
                             data-search="{{ $resLabel }}">
                             @if($primary)
@@ -697,7 +713,7 @@ return $eff === 'ACTIVE'
                 results += parseFloat(tr.cells[RESULT_COL].dataset.results) || 0;
             });
             const label = selected();
-            let text = rows.length + ' campaign(s) · ' + cur + ' ' + money(spend) + ' spend';
+            let text = rows.length + ' campaign(s) · ' + cur + ' ' + money(spend);
             if (results > 0) {
                 text += ' · ' + whole(results) + ' ' + (label || 'results') +
                     ' · ' + cur + ' ' + money(spend / results) + ' per result';

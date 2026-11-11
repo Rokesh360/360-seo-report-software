@@ -57,6 +57,8 @@ $showLg = in_array('lead_generation_ads', $activeTypes, true);
 $showEn = in_array('social_media_engagement', $activeTypes, true);
 $leadOrWhatsappActive = $showWa || $showLg;
 $clientBudget = (float) ($selectedAssignService?->budget ?? 0);
+$gstRate = $gstPercentage === null ? 0 : (float) $gstPercentage;
+$gstMultiplier = 1 + ($gstRate / 100);
 $formAction = $action . (request()->filled('date') && ! $report
 ? '?date=' . urlencode(request('date'))
 : '');
@@ -221,11 +223,19 @@ $backUrl = $selectedAssignServiceId
             <div class="row">
                 <div class="col-md-12">
                     <div id="budgetBox" class="d-flex gap-4 flex-wrap p-3 rounded border"
-                        data-budget="{{ $clientBudget }}">
+                        data-budget="{{ $clientBudget }}"
+                        data-gst-rate="{{ $gstRate }}">
                         <div>Client budget: <strong>₹<span id="budgetValue">{{ number_format($clientBudget) }}</span></strong></div>
-                        <div>Spend entered: <strong>₹<span id="spentValue">0</span></strong></div>
-                        <div>Available spend: <strong>₹<span id="availableValue">0</span></strong></div>
+                        <div>Spend (excl. GST): <strong>₹<span id="spentValue">0.00</span></strong></div>
+                        <div>GST ({{ rtrim(rtrim(number_format($gstRate, 2), '0'), '.') }}%): <strong>₹<span id="gstValue">0.00</span></strong></div>
+                        <div>Total (incl. GST): <strong>₹<span id="spentIncludingGstValue">0.00</span></strong></div>
+                        <div id="availableBudgetItem" class="px-2 py-1 rounded" style="background:#16a34a;color:#fff;">
+                            Available (incl. GST): <strong>₹<span id="availableValue">0.00</span></strong>
+                        </div>
                     </div>
+                    @if($gstPercentage === null)
+                    <div class="text-muted small mt-2">GST rate not configured; available amount excludes GST.</div>
+                    @endif
                     <div id="budgetWarning" class="text-danger small mt-2" style="display:none;"></div>
                     @error('campaign_results')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
@@ -323,7 +333,10 @@ $backUrl = $selectedAssignServiceId
     }
 
     /* Live budget tracker: integers only, capped at available spend */
-    const fmt = n => Number(n).toLocaleString('en-IN');
+    const fmt = n => Number(n).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 
     function otherSpend(except) {
         let sum = 0;
@@ -336,6 +349,7 @@ $backUrl = $selectedAssignServiceId
     function enforceSpend(input) {
         const box = document.getElementById('budgetBox');
         const budget = parseInt(box?.dataset.budget, 10) || 0;
+        const gstRate = parseFloat(box?.dataset.gstRate) || 0;
         const warn = document.getElementById('budgetWarning');
 
         // digits only (also covers paste), drop leading zeros
@@ -344,11 +358,12 @@ $backUrl = $selectedAssignServiceId
 
         let clamped = false;
         if (budget > 0 && digits !== '') {
-            const max = Math.max(budget - otherSpend(input), 0);
+            const max = Math.max(budget / (1 + gstRate / 100) - otherSpend(input), 0);
             if (parseInt(digits, 10) > max) {
-                digits = String(max);
+                digits = String(Math.floor(max));
+                const maxIncludingGst = max * (1 + gstRate / 100);
                 clamped = true;
-                warn.textContent = `Spend cannot exceed the available amount (₹${fmt(max)}).`;
+                warn.textContent = `Spend including GST cannot exceed the client budget (maximum spend before GST: ₹${fmt(max)}; available budget including GST: ₹${fmt(maxIncludingGst)}).`;
                 warn.style.display = 'block';
             }
         }
@@ -361,18 +376,25 @@ $backUrl = $selectedAssignServiceId
         if (!box) return;
 
         const budget = parseInt(box.dataset.budget, 10) || 0;
+        const gstRate = parseFloat(box.dataset.gstRate) || 0;
         const spent = otherSpend(null);
-        const available = budget - spent;
-        const ratio = budget > 0 ? spent / budget : 0;
+        const gstAmount = Math.round(spent * gstRate) / 100;
+        const spentIncludingGst = spent + gstAmount;
+        const available = budget - spentIncludingGst;
+        const ratio = budget > 0 ? spentIncludingGst / budget : 0;
 
         document.getElementById('spentValue').textContent = fmt(spent);
+        document.getElementById('gstValue').textContent = fmt(gstAmount);
+        document.getElementById('spentIncludingGstValue').textContent = fmt(spentIncludingGst);
         document.getElementById('availableValue').textContent = fmt(available);
 
         // green → amber (80%+) → red (fully used)
         const color = (budget > 0 && available <= 0) ? '#d33' : (ratio >= 0.8 ? '#d97706' : '#16a34a');
         box.style.borderColor = color;
         box.style.backgroundColor = color + '14';
-        document.getElementById('availableValue').style.color = color;
+        const availableItem = document.getElementById('availableBudgetItem');
+        availableItem.style.backgroundColor = color;
+        availableItem.style.color = '#fff';
     }
 
     document.addEventListener('input', e => {

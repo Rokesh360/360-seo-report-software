@@ -50,8 +50,21 @@
             </svg>
             Assign services
         </a>
+        <a @class(['side-link', 'is-active'=> $active === 'gst'])
+            href="{{ route('gst-masters.index') }}"
+            @if($active === 'gst') aria-current="page" @endif>
+            <svg viewBox="0 0 20 20" aria-hidden="true" fill="none"
+                stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 2.5h7l4 4v11H5a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2z" />
+                <path d="M12 2.5v4h4" />
+                <path d="M6.5 10h7M6.5 13h7" />
+                <path d="M8 7.5h3" />
+            </svg>
+            GST
+        </a>
 
-         <!-- REPORTS GROUP -->
+        <!-- REPORTS GROUP -->
         <div class="nav-group-label">Reports</div>
         <a @class(['side-link', 'is-active'=> $active === 'reports']) href="{{ route('seo-reports.index') }}" @if($active === 'reports') aria-current="page" @endif>
             <svg viewBox="0 0 20 20" aria-hidden="true">

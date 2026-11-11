@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GstMaster;
 use App\Services\MetaCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,10 +46,14 @@ class MetaCatalogController extends Controller
         }
 
         return view('meta_catalog.index', [
-            'filters'      => $filters,
-            'ranges'       => $ranges,
-            'data'         => $data,
-            'error'        => $error,
+            'filters'       => $filters,
+            'ranges'        => $ranges,
+            'data'          => $data,
+            'error'         => $error,
+            'gstPercentage' => GstMaster::query()
+                ->where('status', true)
+                ->latest('id')
+                ->value('percentage'),
         ]);
     }
 
@@ -172,6 +177,10 @@ class MetaCatalogController extends Controller
 
         // Selected pdf rename
         // $fileSuffix .= $isSelection ? '-selected-' . $campaigns->count() : '';
+        $gstPercentage = GstMaster::query()
+            ->where('status', true)
+            ->latest('id')
+            ->value('percentage');
 
         return Pdf::loadView('meta_catalog.export_pdf', [
             'summary'    => $summary,
@@ -180,6 +189,8 @@ class MetaCatalogController extends Controller
             'daily'      => $daily,
             'rangeLabel' => $label,
             'periodText' => $periodText,
+            'gstPercentage' => $gstPercentage,  
+            'isSelection'   => $isSelection,    
         ])
             ->setPaper('a4', 'portrait')
             ->download("meta-ads-report-{$fileSuffix}.pdf");

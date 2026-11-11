@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\Helpers;
 use App\Models\AssignService;
 use App\Models\Client;
+use App\Models\GstMaster;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -76,7 +77,24 @@ class DashboardController extends Controller
 
         /* ---------------- Tables ---------------- */
         $clientRows    = Helpers::clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
-        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId);
+        $gstPercentage = GstMaster::query()
+            ->where('status', true)
+            ->latest('id')
+            ->value('percentage');
+        $gstRate = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
+
+        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId)
+            ->map(function ($r) use ($gstRate) {
+                $spentIncl = (float) $r['spent'] * (1 + $gstRate);
+
+                $r['spent_excl_gst'] = (float) $r['spent'];
+                $r['spent']          = $spentIncl;                          // now incl. GST
+                $r['available']      = (float) $r['budget'] - $spentIncl;   // Budget − (Spent + GST)
+                return $r;
+            })
+            ->filter(fn($r) => $r['available'] <= Helpers::LOW_BUDGET_LIMIT)
+            ->sortBy('available')
+            ->values();
         $deadlineRows = Helpers::deadlineRows($assignServices, $clientId);
 
         return view('admin.dashboard', [
@@ -97,6 +115,7 @@ class DashboardController extends Controller
             'lowBudgetLimit'     => Helpers::LOW_BUDGET_LIMIT,
             'deadlineRows'       => $deadlineRows,
             'deadlineDays'       => Helpers::DEADLINE_ALERT_DAYS,
+            'gstPercentage' => $gstPercentage,
         ]);
     }
 }

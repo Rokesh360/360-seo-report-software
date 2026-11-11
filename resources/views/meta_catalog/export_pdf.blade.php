@@ -184,7 +184,7 @@
         .kpi {
             display: block;
             color: #123d7a;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
         }
 
@@ -196,6 +196,12 @@
 
         .muted {
             color: #94a3b8;
+        }
+
+        .gst-note {
+            margin: 6px 0 0;
+            font-size: 9px;
+            color: #475467;
         }
     </style>
 </head>
@@ -227,6 +233,19 @@
         $hasReach    = ($summary['reach'] ?? null) !== null;
         $reach       = (float) ($summary['reach'] ?? 0);
         $isSelection = $isSelection ?? false;
+
+        // ---------- GST ----------
+        $gstPercentage = $gstPercentage ?? null;
+        $gstRate       = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
+        $withGst       = fn ($v) => (float) $v * (1 + $gstRate);
+        $gstLabel      = $gstPercentage !== null
+            ? rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '%'
+            : null;
+        $spendHeading  = 'Spend' . ($gstLabel ? ' (incl. GST)' : '');
+
+        $spend     = (float) ($summary['spend'] ?? 0);
+        $spendGst  = $withGst($spend);
+        $gstAmount = $spendGst - $spend;
     @endphp
 
     {{-- ===================== REPORT DETAILS (first page) ===================== --}}
@@ -237,6 +256,7 @@
         @if($isSelection)
             <p>Selected campaigns: {{ $campaigns->count() }}</p>
         @endif
+        <p>GST: {{ $gstLabel ?? 'Not configured (spend excludes GST)' }}</p>
         <p>Generated: {{ now()->format('d M Y H:i') }}</p>
     </div>
 
@@ -245,17 +265,27 @@
         <h2>Performance Summary</h2>
         <table class="kpis">
             <tr>
+                <td>
+                    <span class="kpi">{{ $currency }} {{ $f($spendGst) }}</span>
+                    <span class="label">Spend{{ $gstLabel ? ' (incl. ' . $gstLabel . ' GST)' : '' }}</span>
+                </td>
                 <td><span class="kpi">{{ $f($impr, 0) }}</span><span class="label">Impressions</span></td>
                 <td><span class="kpi">{{ $f($clicks, 0) }}</span><span class="label">Clicks</span></td>
                 <td><span class="kpi">{{ $f($ctr) }}%</span><span class="label">CTR</span></td>
                 @if($hasReach)
                     <td><span class="kpi">{{ $f($reach, 0) }}</span><span class="label">Reach</span></td>
-                    <td><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
-                @else
-                    <td><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
                 @endif
+                <td><span class="kpi">{{ $campaigns->count() }}</span><span class="label">Campaigns</span></td>
             </tr>
         </table>
+
+        @if($gstLabel)
+            <p class="gst-note">
+                Spend excl. GST: {{ $currency }} {{ $f($spend) }}
+                &nbsp;·&nbsp; GST ({{ $gstLabel }}): {{ $currency }} {{ $f($gstAmount) }}
+                &nbsp;·&nbsp; Spend incl. GST: {{ $currency }} {{ $f($spendGst) }}
+            </p>
+        @endif
     </div>
 
     {{-- ===================== CAMPAIGNS ===================== --}}
@@ -268,6 +298,7 @@
                 <thead>
                     <tr>
                         <th>Campaign</th>
+                        <th class="num">{{ $spendHeading }}</th>
                         <th class="num">Impressions</th>
                         <th class="num">Clicks</th>
                         <th class="num">CTR</th>
@@ -277,12 +308,14 @@
                 <tbody>
                     @foreach($campaigns as $c)
                         @php
+                            $cs  = (float) ($c['spend'] ?? 0);
                             $ci  = (float) ($c['impressions'] ?? 0);
                             $cc  = (float) ($c['clicks'] ?? 0);
                             $res = $c['_result'];
                         @endphp
                         <tr>
                             <td>{{ $c['campaign_name'] ?? '-' }}</td>
+                            <td class="num">{{ $currency }} {{ $f($withGst($cs)) }}</td>
                             <td class="num">{{ $f($ci, 0) }}</td>
                             <td class="num">{{ $f($cc, 0) }}</td>
                             <td class="num">{{ $ci > 0 ? $f($cc / $ci * 100) . '%' : '-' }}</td>
@@ -306,6 +339,7 @@
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th class="num">{{ $spendHeading }}</th>
                             <th class="num">Impressions</th>
                             <th class="num">Clicks</th>
                             <th class="num">CTR</th>
@@ -314,11 +348,13 @@
                     <tbody>
                         @foreach($daily as $d)
                             @php
+                                $ds = (float) ($d['spend'] ?? 0);
                                 $di = (float) ($d['impressions'] ?? 0);
                                 $dc = (float) ($d['clicks'] ?? 0);
                             @endphp
                             <tr>
                                 <td>{{ \Carbon\Carbon::parse($d['date_start'])->format('d M Y') }}</td>
+                                <td class="num">{{ $currency }} {{ $f($withGst($ds)) }}</td>
                                 <td class="num">{{ $f($di, 0) }}</td>
                                 <td class="num">{{ $f($dc, 0) }}</td>
                                 <td class="num">{{ $di > 0 ? $f($dc / $di * 100) . '%' : '-' }}</td>

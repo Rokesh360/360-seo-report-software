@@ -224,7 +224,7 @@ $icons = [
         <div class="panel-heading rankings-heading">
             <div>
                 <h2>Low available budget</h2>
-                <p>Remaining budget of ₹{{ number_format($lowBudgetLimit) }} or less, sorted from lowest to highest</p>
+                <p>Remaining budget (incl. GST{{ $gstPercentage !== null ? ' ' . rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '%' : ' not configured' }}) of ₹{{ number_format($lowBudgetLimit) }} or less, sorted from lowest to highest</p>
             </div>
             <span class="table-summary">
                 {{ $lowBudgetRows->count() }} {{ \Illuminate\Support\Str::plural('record', $lowBudgetRows->count()) }}
@@ -239,8 +239,8 @@ $icons = [
                         <th>DEADLINE</th>
                         <th>REPORT DATE</th>
                         <th>BUDGET</th>
-                        <th>SPENT</th>
-                        <th>AVAILABLE</th>
+                        <th>SPENT (INCL. GST)</th>
+                        <th>AVAILABLE (INCL. GST)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -251,7 +251,12 @@ $icons = [
                         <td style="white-space:nowrap;">{{ $row['to_date'] ? \Carbon\Carbon::parse($row['to_date'])->format('d M Y') : '—' }}</td>
                         <td>{{ $row['date']->format('d M Y') }}</td>
                         <td>₹{{ number_format($row['budget']) }}</td>
-                        <td>₹{{ number_format($row['spent']) }}</td>
+                        <td>
+                            ₹{{ number_format($row['spent']) }}
+                            @if($gstPercentage !== null)
+                            <span class="keyword-url">Excl. GST: ₹{{ number_format($row['spent_excl_gst']) }}</span>
+                            @endif
+                        </td>
                         <td><strong style="color:#d27663;">₹{{ number_format($row['available']) }}</strong></td>
                     </tr>
                     @endforeach
@@ -332,7 +337,7 @@ $icons = [
                     '<div class="alert-popup-title">💰 ' + plural(budgetRows.length, 'record has', 'records have') +
                     ' low remaining budget</div>' +
                     '<div style="max-height:200px;overflow:auto;"><table class="lb-popup-table">' +
-                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>REPORT DATE</th><th>AVAILABLE</th></tr></thead>' +
+                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>REPORT DATE</th><th>AVAILABLE (INCL. GST)</th></tr></thead>' +
                     '<tbody>' + body + '</tbody></table></div>';
             }
 

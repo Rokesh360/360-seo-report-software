@@ -20,7 +20,7 @@ final class Helpers
         $today = Carbon::today();
 
         return $assignServices
-            ->filter(fn ($a) => $a->to_date && (! $clientId || (int) $a->client_id === $clientId))
+            ->filter(fn($a) => $a->to_date && (! $clientId || (int) $a->client_id === $clientId))
             ->map(function ($a) use ($today) {
                 $to = Carbon::parse($a->to_date)->startOfDay();
                 $daysLeft = (int) $today->diffInDays($to, false);
@@ -56,7 +56,7 @@ final class Helpers
     {
         return SocialMediaReport::query()
             ->whereBetween('created_at', [$from->toDateString(), $to->toDateString()])
-            ->when($scopedIds !== null, fn ($query) => $query->whereIn('assign_service_id', $scopedIds))
+            ->when($scopedIds !== null, fn($query) => $query->whereIn('assign_service_id', $scopedIds))
             ->get([
                 'id',
                 'assign_service_id',
@@ -81,7 +81,7 @@ final class Helpers
             ->selectRaw('campaign_id, SUM(spend) as spent, MAX(report_date) as last_date')
             ->groupBy('campaign_id')
             ->get()
-            ->keyBy(fn ($row) => (string) $row->campaign_id);
+            ->keyBy(fn($row) => (string) $row->campaign_id);
 
         return $assignServices
             ->filter(function ($a) use ($clientId) {
@@ -91,7 +91,7 @@ final class Helpers
             })
             ->map(function ($a) use ($stats) {
                 $campaignStats = collect($a->campaign_ids)
-                    ->map(fn ($id) => $stats->get((string) $id))
+                    ->map(fn($id) => $stats->get((string) $id))
                     ->filter();
 
                 $budget = (float) $a->budget;
@@ -164,7 +164,7 @@ final class Helpers
 
         $max = max($buckets);
 
-        return array_map(fn ($value) => $max > 0 ? max(8, (int) round($value / $max * 100)) : 8, $buckets);
+        return array_map(fn($value) => $max > 0 ? max(8, (int) round($value / $max * 100)) : 8, $buckets);
     }
 
     public static function buildChart(array $clicks, array $impressions, Carbon $start): array
@@ -190,7 +190,7 @@ final class Helpers
         $peakDay = array_search(max($clicks), $clicks, true);
 
         $xLabels = collect([1, 6, 11, 16, 21, 26, $days])->unique()
-            ->map(fn ($day) => $start->copy()->day($day)->format('M d'))->all();
+            ->map(fn($day) => $start->copy()->day($day)->format('M d'))->all();
 
         return [
             'hasData' => array_sum($clicks) + array_sum($impressions) > 0,
@@ -345,8 +345,8 @@ final class Helpers
             return $totals;
         })->sortByDesc('spend')->values()->all();
 
-        $daily = $rows->groupBy(fn ($row) => $row->report_date->toDateString())
-            ->map(fn ($group, $date) => ['date' => $date] + self::metaTotals($group))
+        $daily = $rows->groupBy(fn($row) => $row->report_date->toDateString())
+            ->map(fn($group, $date) => ['date' => $date] + self::metaTotals($group))
             ->sortKeys()->values()->all();
 
         return [
@@ -400,7 +400,7 @@ final class Helpers
 
     public static function barGraph(array $metrics): ?string
     {
-        $metrics = array_filter($metrics, static fn ($v) => $v > 0);
+        $metrics = array_filter($metrics, static fn($v) => $v > 0);
         if (! $metrics || ! self::available()) {
             return null;
         }
@@ -408,7 +408,10 @@ final class Helpers
         $cnt = count($metrics);
         $w = max(900, $cnt * 120 + 100);
         $h = 380;
-        $left = 70; $right = 20; $top = 40; $bottom = 60;
+        $left = 70;
+        $right = 20;
+        $top = 40;
+        $bottom = 60;
         $plotW = $w - $left - $right;
         $plotH = $h - $top - $bottom;
         $max = (float) max($metrics);
@@ -445,7 +448,7 @@ final class Helpers
 
     public static function pie(array $slices): ?string
     {
-        $slices = array_filter($slices, static fn ($v) => $v > 0);
+        $slices = array_filter($slices, static fn($v) => $v > 0);
         $total = array_sum($slices);
         if (! $slices || $total <= 0 || ! self::available()) {
             return null;
@@ -472,8 +475,13 @@ final class Helpers
 
             if ($endDeg > $startDeg) {
                 imagefilledarc(
-                    $im, (int) $c, (int) $c, $d, $d,
-                    $startDeg % 360, $endDeg % 360,
+                    $im,
+                    (int) $c,
+                    (int) $c,
+                    $d,
+                    $d,
+                    $startDeg % 360,
+                    $endDeg % 360,
                     self::alloc($im, self::PALETTE[$i % count(self::PALETTE)]),
                     IMG_ARC_PIE
                 );
@@ -491,8 +499,12 @@ final class Helpers
             return null;
         }
 
-        $w = 1000; $h = 380;
-        $left = 70; $right = 30; $top = 40; $bottom = 60;
+        $w = 1000;
+        $h = 380;
+        $left = 70;
+        $right = 30;
+        $top = 40;
+        $bottom = 60;
         $plotW = $w - $left - $right;
         $plotH = $h - $top - $bottom;
         $max = (float) (max($values) ?: 1);
@@ -609,5 +621,62 @@ final class Helpers
             self::rightText($im, 3, $left - 8, $y - 6, number_format($max * $i / 4), $txt);
         }
         imageline($im, $left, $top, $left, $top + $plotH, $axis);
+    }
+
+    public static function campaignOptions(): Collection
+    {
+        return MetaAdsDailyStat::query()
+            ->whereDate('report_date', now()->toDateString())
+            ->selectRaw('campaign_id, MAX(campaign_name) as campaign_name,
+             SUM(leads) as total_leads,
+             SUM(messaging_conversations) as total_msgs,
+             SUM(spend) as total_spend')
+            ->groupBy('campaign_id')
+            ->orderBy('campaign_name')
+            ->get()
+            ->map(fn($c) => self::decorateCampaign($c));
+    }
+
+    private static function decorateCampaign(object $c): object
+    {
+        $c->types = self::campaignTypes($c);
+
+        return $c;
+    }
+
+    private static function campaignTypes(object $c): array
+    {
+        $name  = strtolower($c->campaign_name ?? '');
+        $types = [];
+
+        if (preg_match('/whats\s?app|\bwa\b/', $name)) {
+            $types[] = 'whatsapp_meta_ads';
+        }
+        if (str_contains($name, 'lead')) {
+            $types[] = 'lead_generation_ads';
+        }
+        if (str_contains($name, 'engagement')) {
+            $types[] = 'social_media_engagement';
+        }
+
+        // Name gave no hint: fall back to what the campaign actually produced
+        if (! $types) {
+            $types = self::campaignTypesFromStats($c);
+        }
+
+        return $types;
+    }
+
+    private static function campaignTypesFromStats(object $c): array
+    {
+        if ($c->total_leads > 0) {
+            return ['lead_generation_ads'];
+        }
+
+        if ($c->total_msgs > 0) {
+            return ['whatsapp_meta_ads'];
+        }
+
+        return [];
     }
 }

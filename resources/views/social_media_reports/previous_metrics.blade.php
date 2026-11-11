@@ -8,7 +8,7 @@
 
 @php
 $filled = $rows->filter(fn ($r) => !empty($r['report']))->count();
-$budget = (int) ($assignService->budget ?? 0);
+$budget = (float) ($assignService->budget ?? 0);
 @endphp
 
 <div class="dashboard-content report-content">
@@ -53,8 +53,8 @@ $budget = (int) ($assignService->budget ?? 0);
                         <th style="width:60px;">S.No</th>
                         <th style="width:140px;">Entry Date</th>
                         <th>Type</th>
-                        <th style="width:140px;">Spent</th>
-                        <th style="width:140px;">Available</th>
+                        <th style="width:160px;">Spent</th>
+                        <th style="width:170px;">Available (incl. GST)</th>
                         <th class="report-actions-heading" style="width:220px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
@@ -63,16 +63,20 @@ $budget = (int) ($assignService->budget ?? 0);
                     @php
                     $report = $row['report'];
                     $spent = null;
+                    $gstAmount = null;
+                    $spentIncludingGst = null;
                     $available = null;
 
                     if ($report) {
                     $spent = collect($report->campaign_results ?? [])
-                    ->sum(fn ($r) => (int) preg_replace(
-                    '/\D/',
+                    ->sum(fn ($r) => (float) preg_replace(
+                    '/[^0-9.]/',
                     '',
                     (string) ($r['spend'] ?? 0)
                     ));
-                    $available = $budget - $spent;
+                    $gstAmount = $gstPercentage === null ? 0 : round($spent * $gstPercentage / 100, 2);
+                    $spentIncludingGst = $spent + $gstAmount;
+                    $available = $budget - $spentIncludingGst;
                     }
                     $typeLabel = '';
 
@@ -98,11 +102,20 @@ $budget = (int) ($assignService->budget ?? 0);
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $row['date'] ? $row['date']->format('d M Y') : '—' }}</td>
                         <td>{{ $typeLabel }}</td>
-                        <td>{{ $spent !== null ? '₹' . number_format($spent) : '—' }}</td>
+                        <td>
+                            @if($spent !== null)
+                            ₹{{ number_format($spent, 2) }}
+                            <span class="keyword-url">
+                                {{ $gstPercentage !== null ? 'Incl. GST: ₹' . number_format($spentIncludingGst, 2) : 'GST not configured' }}
+                            </span>
+                            @else
+                            —
+                            @endif
+                        </td>
                         <td>
                             @if($available !== null)
-                            <strong style="color: {{ $available <= 0 ? '#d33' : '#16a34a' }};">
-                                ₹{{ number_format($available) }}
+                            <strong style="display:inline-block;padding:4px 8px;border-radius:6px;">
+                                ₹{{ number_format($available, 2) }}
                             </strong>
                             @else
                             —
