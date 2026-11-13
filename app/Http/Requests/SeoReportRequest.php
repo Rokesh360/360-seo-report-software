@@ -32,6 +32,12 @@ class SeoReportRequest extends FormRequest
             'performance_images.*.existing' => 'nullable|string|max:500',
             'performance_images.*.file'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
 
+            'ai_reports'                 => 'nullable|array',
+            'ai_reports.*.title'         => 'nullable|string|max:255',
+            'ai_reports.*.keyword'       => 'nullable|string|max:255',
+            'ai_reports.*.existing'      => 'nullable|string|max:500',
+            'ai_reports.*.file'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096|required_without:ai_reports.*.existing',
+
             'keywords'                 => 'required|array|min:1',
             'keywords.*.keyword'       => 'required|string|max:255',
             'keywords.*.page'          => 'nullable|integer|between:1,10',
@@ -64,6 +70,8 @@ class SeoReportRequest extends FormRequest
             'images.*.file.max'           => 'Image row :position must not exceed 4 MB.',
             'performance_images.*.file.image' => 'Performance image row :position must be an image.',
             'performance_images.*.file.max'   => 'Performance image row :position must not exceed 4 MB.',
+            'ai_reports.*.file.image' => 'AI report row :position must be an image.',
+            'ai_reports.*.file.max'   => 'AI report row :position must not exceed 4 MB.',
         ];
     }
 }

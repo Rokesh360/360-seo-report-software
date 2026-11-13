@@ -83,39 +83,32 @@ class DashboardController extends Controller
             ->value('percentage');
         $gstRate = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
 
-        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId)
-            ->map(function ($r) use ($gstRate) {
-                $spentIncl = (float) $r['spent'] * (1 + $gstRate);
+        // Spend is counted only inside each assignment's from_date..to_date,
+        // GST is applied inside the helper, and rows are already filtered/sorted.
+        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId, $gstRate);
 
-                $r['spent_excl_gst'] = (float) $r['spent'];
-                $r['spent']          = $spentIncl;                          // now incl. GST
-                $r['available']      = (float) $r['budget'] - $spentIncl;   // Budget − (Spent + GST)
-                return $r;
-            })
-            ->filter(fn($r) => $r['available'] <= Helpers::LOW_BUDGET_LIMIT)
-            ->sortBy('available')
-            ->values();
+        // Independent of the low-budget list: an assignment can appear in both.
         $deadlineRows = Helpers::deadlineRows($assignServices, $clientId);
 
         return view('admin.dashboard', [
-            'month'              => $month,
-            'start'              => $start,
-            'end'                => $end,
-            'periodLabel'        => $month->format('F Y'),
-            'greeting'           => now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening'),
-            'cards'              => $cards,
-            'chart'              => $chart,
-            'donut'              => $donut,
-            'clientRows'         => $clientRows,
-            'reportCount'        => $current->count(),
-            'monthOptions'       => collect(range(0, 11))->map(fn($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
-            'clients'            => $clients,
-            'clientId'           => $clientId,
-            'lowBudgetRows'      => $lowBudgetRows,
-            'lowBudgetLimit'     => Helpers::LOW_BUDGET_LIMIT,
-            'deadlineRows'       => $deadlineRows,
-            'deadlineDays'       => Helpers::DEADLINE_ALERT_DAYS,
-            'gstPercentage' => $gstPercentage,
+            'month'          => $month,
+            'start'          => $start,
+            'end'            => $end,
+            'periodLabel'    => $month->format('F Y'),
+            'greeting'       => now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening'),
+            'cards'          => $cards,
+            'chart'          => $chart,
+            'donut'          => $donut,
+            'clientRows'     => $clientRows,
+            'reportCount'    => $current->count(),
+            'monthOptions'   => collect(range(0, 11))->map(fn($i) => now()->startOfMonth()->subMonthsNoOverflow($i)),
+            'clients'        => $clients,
+            'clientId'       => $clientId,
+            'lowBudgetRows'  => $lowBudgetRows,
+            'lowBudgetLimit' => Helpers::LOW_BUDGET_LIMIT,
+            'deadlineRows'   => $deadlineRows,
+            'deadlineDays'   => Helpers::DEADLINE_ALERT_DAYS,
+            'gstPercentage'  => $gstPercentage,
         ]);
     }
 }

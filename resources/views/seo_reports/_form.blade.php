@@ -71,6 +71,15 @@
         ? collect($report->images)->map(fn ($i) => ['title' => $i['title'], 'existing' => $i['path']])->all()
         : []);
 
+    // -------- AI report images --------
+    $aiReports = old('ai_reports', $report
+        ? collect($report->ai_reports ?? [])->map(fn ($i) => [
+            'title' => $i['title'] ?? '',
+            'keyword' => $i['keyword'] ?? '',
+            'existing' => $i['path'] ?? null,
+        ])->all()
+        : []);
+
     // -------- Performance images --------
     $performanceImages = old('performance_images', $report
         ? collect($report->performance_images ?? [])->map(fn ($i) => ['title' => $i['title'], 'existing' => $i['path']])->all()
@@ -401,6 +410,54 @@
             </div>
         </div>
 
+        {{-- ==================== AI Report ==================== --}}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>AI Report</span>
+                <button type="button" class="btn btn-sm btn-primary" onclick="addAiReportRow()">+ Add Row</button>
+            </div>
+            <div class="card-body" id="ai-report-rows">
+                @foreach($aiReports as $i => $row)
+                    <div class="row g-2 mb-2 align-items-center ai-report-row">
+                        <div class="col-md-3">
+                            <input name="ai_reports[{{ $i }}][title]"
+                                   class="form-control @error("ai_reports.{$i}.title") is-invalid @enderror"
+                                   placeholder="Title" value="{{ $row['title'] ?? '' }}">
+                            @error("ai_reports.{$i}.title")
+                                <span class="field-error d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="col-md-3">
+                            <input name="ai_reports[{{ $i }}][keyword]"
+                                   class="form-control @error("ai_reports.{$i}.keyword") is-invalid @enderror"
+                                   placeholder="Keyword" value="{{ $row['keyword'] ?? '' }}">
+                            @error("ai_reports.{$i}.keyword")
+                                <span class="field-error d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <input type="file" name="ai_reports[{{ $i }}][file]" accept="image/*"
+                                   class="form-control @error("ai_reports.{$i}.file") is-invalid @enderror">
+                            @if(!empty($row['existing']))
+                                <input type="hidden" name="ai_reports[{{ $i }}][existing]" value="{{ $row['existing'] }}">
+                                <img src="{{ asset('storage/'.$row['existing']) }}" style="height:45px" alt="">
+                            @endif
+                            @error("ai_reports.{$i}.file")
+                                <span class="field-error d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-danger w-100"
+                                    onclick="this.closest('.ai-report-row').remove()">×</button>
+                        </div>
+                    </div>
+                @endforeach
+                @error('ai_reports')
+                    <span class="field-error d-block">{{ $message }}</span>
+                @enderror
+            </div>
+        </div>
+
         {{-- ==================== Other Screenshots / Images ==================== --}}
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between">
@@ -468,6 +525,7 @@
 <script>
     let kIndex = Number(@json(count($keywords)));
     let iIndex = Number(@json($images ? max(array_keys($images)) + 1 : 0));
+    let aiReportIndex = Number(@json($aiReports ? max(array_keys($aiReports)) + 1 : 0));
     let pIndex = Number(@json(count($performanceImages)));
 
     const pageOptions     = @json($pageOptions);
@@ -588,6 +646,18 @@
             <div class="col-md-1"><button type="button" class="btn btn-outline-danger w-100" onclick="this.closest('.image-row').remove()">×</button></div>
         </div>`);
         iIndex++;
+    }
+
+    /* ---------- AI report rows ---------- */
+    function addAiReportRow() {
+        document.getElementById('ai-report-rows').insertAdjacentHTML('beforeend', `
+        <div class="row g-2 mb-2 align-items-center ai-report-row">
+            <div class="col-md-3"><input name="ai_reports[${aiReportIndex}][title]" class="form-control" placeholder="Title"></div>
+            <div class="col-md-3"><input name="ai_reports[${aiReportIndex}][keyword]" class="form-control" placeholder="Keyword"></div>
+            <div class="col-md-4"><input type="file" name="ai_reports[${aiReportIndex}][file]" accept="image/*" class="form-control"></div>
+            <div class="col-md-2"><button type="button" class="btn btn-outline-danger w-100" onclick="this.closest('.ai-report-row').remove()">×</button></div>
+        </div>`);
+        aiReportIndex++;
     }
 
     /* ---------- Performance images ---------- */

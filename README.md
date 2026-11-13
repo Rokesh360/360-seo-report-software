@@ -33,6 +33,21 @@ META_ACCESS_TOKEN=your_access_token
 
 Replace the example `META_CATALOG_ID` with your actual numeric catalog ID from Meta Commerce Manager; do not enter the placeholder text `YOUR_ACTUAL_CATALOG_ID`. The version may be entered as `v26` or `v26.0`. After changing environment values on a server with cached configuration, run `php artisan config:clear`. Sign in and open **Reports → Meta catalog** to make a request. The request is `GET https://graph.facebook.com/v26.0/{catalog_id}?fields=id,name`; the token is sent in the HTTP Authorization header and is not included in the browser or request URL. The page displays the response returned by Meta. If Meta rejects the request, it displays Meta's error message and error code; verify the catalog ID, token validity, and the token's catalog permissions.
 
+## Low-budget WhatsApp alerts
+
+After the daily `meta-ads:store-today` sync, the app sends an alert for each active assigned service that reaches the low-budget threshold. It sends once per low-budget period and can send to multiple recipients:
+
+```dotenv
+WHATSAPP_ALERT_NUMBERS=9876543210,9123456789
+WHATSAPP_DEFAULT_COUNTRY_CODE=91
+WHATSAPP_PHONE_NUMBER_ID=your_business_phone_number_id
+WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+WHATSAPP_LOW_BUDGET_TEMPLATE=low_budget_alert
+WHATSAPP_TEMPLATE_LANGUAGE=en_US
+```
+
+Local 10-digit numbers are prefixed with `WHATSAPP_DEFAULT_COUNTRY_CODE`; full numbers may also be provided. Keep credentials only in the server `.env`. The WhatsApp Cloud API access token must have messaging permission, and the phone number must belong to the connected WhatsApp Business account. Create and approve a template with five body placeholders, in this order: client name, service name, remaining budget including GST, spend including GST, and total budget. The default template name is `low_budget_alert`. Ensure the Laravel scheduler runs so the daily Meta sync and alert check execute.
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.

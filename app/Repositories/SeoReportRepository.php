@@ -32,6 +32,7 @@ class SeoReportRepository
 
         $oldImages      = collect($report->images ?? [])->pluck('path');
         $oldPerformanceImages = collect($report->performance_images ?? [])->pluck('path');
+        $oldAiReportImages = collect($report->ai_reports ?? [])->pluck('path');
         $oldScoreImage  = $report->seo_score_image;
 
         // Collect keyword-level image paths before update
@@ -59,6 +60,9 @@ class SeoReportRepository
         $keptPerformance = collect($payload['performance_images'])->pluck('path');
         $oldPerformanceImages->diff($keptPerformance)->each(fn($path) => Storage::disk('public')->delete($path));
 
+        $keptAiReportImages = collect($payload['ai_reports'])->pluck('path');
+        $oldAiReportImages->diff($keptAiReportImages)->each(fn($path) => Storage::disk('public')->delete($path));
+
         return $report;
     }
 
@@ -81,6 +85,21 @@ class SeoReportRepository
     {
         $data['on_page_items'] = $data['on_page_items'] ?? [];
         $data['backlinks_items']  = $data['backlinks_items']  ?? [];
+        $data['ai_reports'] = collect($data['ai_reports'] ?? [])
+            ->map(function ($item) {
+                $path = isset($item['file'])
+                    ? $item['file']->store('seo-reports', 'public')
+                    : ($item['existing'] ?? null);
+
+                return $path ? [
+                    'title' => $item['title'] ?? '',
+                    'keyword' => $item['keyword'] ?? '',
+                    'path' => $path,
+                ] : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
 
         // SEO score image
         if (isset($data['seo_score_image'])) {

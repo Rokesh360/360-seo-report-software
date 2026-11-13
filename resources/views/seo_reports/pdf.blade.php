@@ -168,6 +168,53 @@
             height: auto;
         }
 
+        .other-image-block {
+            width: 100%;
+            border-collapse: collapse;
+            page-break-inside: avoid;
+            margin: 0 0 24px;
+        }
+
+        .other-image-title {
+            padding: 0 0 8px;
+        }
+
+        .other-image-title h2 {
+            margin-bottom: 0;
+        }
+
+        .other-image-cell {
+            text-align: center;
+            padding: 0;
+            font-size: 0;
+            line-height: 0;
+        }
+
+        .other-image-cell img {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        .ai-report-item {
+            text-align: center;
+            margin: 0 0 16px;
+            page-break-inside: avoid;
+        }
+
+        .ai-report-item p {
+            margin: 0 0 8px;
+        }
+
+        .ai-report-item img {
+            display: block;
+            margin: 0 auto;
+            max-width: 480px;
+            max-height: 420px;
+            width: auto;
+            height: auto;
+        }
+
         /* =====================================================
            STATS ROW
            ===================================================== */
@@ -343,6 +390,7 @@
     'performance',
     'keyword_details',
     'backlinks',
+    'ai_reports',
     'images',
     'conclusion',
     ];
@@ -562,21 +610,60 @@
             @endif
             @break
 
+            {{-- ===================== AI REPORT ===================== --}}
+            @case('ai_reports')
+            @if(!empty($report->ai_reports))
+            @php
+            $aiReportItems = collect($report->ai_reports)
+                ->map(fn ($item) => [
+                    'item' => $item,
+                    'fit' => $fitImage($item['path'] ?? null, 480, 420),
+                ])
+                ->filter(fn ($entry) => $entry['fit'])
+                ->values();
+            @endphp
+            @if($aiReportItems->isNotEmpty())
+            <div class="section ai-report-section">
+                <h2>AI Report</h2>
+                @foreach($aiReportItems as $entry)
+                @php $item = $entry['item']; $fit = $entry['fit']; @endphp
+                <div class="ai-report-item">
+                    @if(!empty($item['keyword']))
+                    <p><strong>Keyword:</strong> {{ $item['keyword'] }}</p>
+                    @endif
+                    <img src="{{ $fit['path'] }}"
+                        style="width: {{ $fit['w'] }}px; height: {{ $fit['h'] }}px;"
+                        alt="">
+                </div>
+                @endforeach
+            </div>
+            @endif
+            @endif
+            @break
+
             {{-- ===================== OTHER SCREENSHOTS / IMAGES ===================== --}}
             @case('images')
             @if(!empty($report->images))
             @foreach($report->images as $img)
-            @php $fit = $fitImage($img['path'] ?? null); @endphp
+            @php $fit = $fitImage($img['path'] ?? null, 520, 560); @endphp
             @if($fit)
-            <div class="shot {{ $pendingBreak ? 'new-page' : '' }}">
-                @php $pendingBreak = false; @endphp
+            <table class="other-image-block" cellspacing="0" cellpadding="0">
                 @if(!empty($img['title']))
-                <h2>{{ $img['title'] }}</h2>
+                <tr>
+                    <td class="other-image-title">
+                        <h2>{{ $img['title'] }}</h2>
+                    </td>
+                </tr>
                 @endif
-                <img src="{{ $fit['path'] }}"
-                    style="width: {{ $fit['w'] }}px; height: {{ $fit['h'] }}px;"
-                    alt="">
-            </div>
+                <tr>
+                    <td class="other-image-cell">
+                        <img src="{{ $fit['path'] }}"
+                            width="{{ $fit['w'] }}"
+                            height="{{ $fit['h'] }}"
+                            alt="">
+                    </td>
+                </tr>
+            </table>
             @endif
             @endforeach
             @endif

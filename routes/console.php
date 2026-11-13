@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('meta-ads:store-today')
+Schedule::command('meta-ads:store-yesterday')
     ->dailyAt(config('services.meta.daily_sync_time', '14:33'))
     ->timezone(config('app.timezone'))
     ->withoutOverlapping(10)

@@ -301,6 +301,23 @@ class MetaCatalogService
             : 'last_30d'];
     }
 
+    /** Fetch campaign-level spend for an explicit date range. */
+    public function campaignsForDateRange(string $since, string $until): array
+    {
+        return $this->section(fn() => $this->rawGetAll(
+            $this->adAccountId() . '/insights',
+            [
+                'fields' => 'campaign_id,campaign_name,spend,account_currency,actions',
+                'level' => 'campaign',
+                'limit' => 200,
+                'time_range' => json_encode([
+                    'since' => $since,
+                    'until' => $until,
+                ]),
+            ]
+        ));
+    }
+
     /** Everything the page needs, each section isolated from the others. */
     public function dashboard(array $filters): array
     {
@@ -380,13 +397,13 @@ class MetaCatalogService
         ];
     }
 
-    public function storeToday(): int
+    public function storeYesterday(): int
     {
-        $today = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
         $data = $this->dashboard([
             'range' => 'custom',
-            'since' => $today,
-            'until' => $today,
+            'since' => $yesterday,
+            'until' => $yesterday,
         ]);
 
         if (! ($data['campaigns']['ok'] ?? false)) {
@@ -399,7 +416,7 @@ class MetaCatalogService
         $campaigns = collect($campaignRows);
 
         if ($campaigns->isEmpty()) {
-            throw new RuntimeException("No campaign data found for {$today}.");
+            throw new RuntimeException("No campaign data found for {$yesterday}.");
         }
 
         $hasInvalidCampaign = $campaigns->contains(
@@ -432,12 +449,12 @@ class MetaCatalogService
             return 0;
         };
 
-        DB::transaction(function () use ($campaigns, $today, $action): void {
-            MetaAdsDailyStat::whereDate('report_date', $today)->delete();
+        DB::transaction(function () use ($campaigns, $yesterday, $action): void {
+            MetaAdsDailyStat::whereDate('report_date', $yesterday)->delete();
 
             foreach ($campaigns as $campaign) {
                 MetaAdsDailyStat::create([
-                    'report_date'             => $today,
+                    'report_date'             => $yesterday,
                     'campaign_id'             => $campaign['campaign_id'],
                     'campaign_name'           => $campaign['campaign_name'] ?? null,
                     'spend'                   => $campaign['spend'],

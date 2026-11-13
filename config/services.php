@@ -35,6 +35,16 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'access_token'         => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id'      => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'alert_numbers'        => env('WHATSAPP_ALERT_NUMBERS'),
+        'default_country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
+        'low_budget_template'  => env('WHATSAPP_LOW_BUDGET_TEMPLATE', 'low_budget_alert'),
+        'template_language'    => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en_US'),
+        'template_has_params'  => env('WHATSAPP_TEMPLATE_HAS_PARAMS', true),
+    ],
+
     'meta' => [
         'graph_api_version' => env('META_GRAPH_API_VERSION', 'v21.0'),
         'daily_sync_time'   => env('META_ADS_SYNC_TIME', '14:33'),

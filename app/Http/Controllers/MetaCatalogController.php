@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GstMaster;
 use App\Services\MetaCatalogService;
+use App\Support\Helpers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -128,7 +129,7 @@ class MetaCatalogController extends Controller
             ->sortByDesc(fn($c) => (float) ($c['spend'] ?? 0))
             ->values()
             ->map(function ($c) {
-                $c['_result'] = $this->primaryResult($c);
+                $c['_result'] = Helpers::primaryResult($c);
                 return $c;
             });
 
@@ -194,38 +195,5 @@ class MetaCatalogController extends Controller
         ])
             ->setPaper('a4', 'portrait')
             ->download("meta-ads-report-{$fileSuffix}.pdf");
-    }
-
-    /** Pull the primary result out of Meta's actions array (same logic as the dashboard). */
-    private function primaryResult(array $c): ?array
-    {
-        $map = [
-            'lead' => 'Leads',
-            'offsite_conversion.fb_pixel_lead' => 'Leads',
-            'onsite_conversion.lead_grouped' => 'Leads',
-            'offsite_complete_registration_add_meta_leads' => 'Registrations',
-            'offsite_search_add_meta_leads' => 'Searches',
-            'offsite_content_view_add_meta_leads' => 'Content views',
-            'purchase' => 'Purchases',
-            'offsite_conversion.fb_pixel_purchase' => 'Purchases',
-            'add_to_cart' => 'Add to cart',
-            'initiate_checkout' => 'Checkouts',
-            'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations',
-            'link_click' => 'Link clicks',
-            'post_engagement' => 'Post engagement',
-            'video_view' => 'Video views',
-        ];
-
-        $actions = collect($c['actions'] ?? [])
-            ->filter(fn($a) => isset($a['action_type'], $a['value']))
-            ->keyBy('action_type');
-
-        foreach ($map as $type => $label) {
-            if ($actions->has($type)) {
-                return ['label' => $label, 'value' => (float) $actions[$type]['value']];
-            }
-        }
-
-        return null;
     }
 }

@@ -131,7 +131,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                 </div>
 
                 {{-- From / To --}}
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">
                         From Date <span class="required-star" aria-hidden="true">*</span>
                     </label>
@@ -142,7 +142,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                     @error('from_date')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">
                         To Date <span class="required-star" aria-hidden="true">*</span>
                     </label>
@@ -153,7 +153,7 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                     @error('to_date')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
 
-                <div class="col-md-6" id="campaignField" @if(! $showCampaigns) hidden @endif>
+                <div class="col-md-4" id="campaignField" @if(! $showCampaigns) hidden @endif>
                     <label class="form-label">Campaign(s)</label>
                     <div class="multi-select" id="campaignMultiSelect">
                         <button type="button" class="multi-select-trigger" id="campaignTrigger">
@@ -164,24 +164,15 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
                             </svg>
                         </button>
                         <div class="multi-select-panel" id="campaignPanel">
-                            @forelse($campaigns as $campaign)
-                            <label class="multi-select-option campaign-option"
-                                data-types="{{ implode(' ', $campaign->types) }}"
-                                data-spend="{{ (float) $campaign->total_spend }}">
-                                <input type="checkbox" name="campaign_ids[]"
-                                    value="{{ $campaign->campaign_id }}"
-                                    @checked(in_array((string) $campaign->campaign_id, $selectedCampaignIds, true))
-                                @disabled(! $showCampaigns)>
-                                <span>{{ $campaign->campaign_name ?? $campaign->campaign_id }}</span>
-                            </label>
-                            @empty
-                            <div class="multi-select-empty">No Meta Ads campaign data is available yet.</div>
-                            @endforelse
-
-                            <div class="multi-select-empty" id="campaignNoMatch" style="display:none;">
-                                No campaigns match the selected service(s).
+                            <div id="campaignOptions"></div>
+                            <div class="multi-select-empty" id="campaignStatus">
+                                Select a campaign service and date range to load campaigns.
                             </div>
                         </div>
+                    </div>
+                    <div class="form-text text-primary" id="campaignLoading" role="status" aria-live="polite" hidden>
+                        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        Loading campaigns for the selected date range...
                     </div>
                     @error('campaign_ids')<span class="field-error">{{ $message }}</span>@enderror
                     @error('campaign_ids.*')<span class="field-error">{{ $message }}</span>@enderror
@@ -355,8 +346,23 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
         const panel = document.getElementById('servicePanel');
         const label = document.getElementById('serviceTriggerLabel');
         const badge = document.getElementById('serviceCountBadge');
+        const campaignField = document.getElementById('campaignField');
+        const campaignPanel = document.getElementById('campaignPanel');
+        const campaignOptions = document.getElementById('campaignOptions');
+        const campaignStatus = document.getElementById('campaignStatus');
+        const campaignLoading = document.getElementById('campaignLoading');
+        const campaignTriggerLabel = document.getElementById('campaignTriggerLabel');
+        const fromDate = document.getElementById('from_date');
+        const toDate = document.getElementById('to_date');
+        const selectedCampaignIds = new Set(@json($selectedCampaignIds));
+        let campaignRequest = null;
 
         if (!trigger || !panel) return;
+
+        function setCampaignLoading(loading) {
+            campaignLoading.hidden = !loading;
+            document.getElementById('campaignTrigger').setAttribute('aria-busy', loading ? 'true' : 'false');
+        }
 
         function refresh() {
             const checked = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'));
@@ -389,39 +395,121 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
         }
 
         function updateCampaignField() {
-            const field = document.getElementById('campaignField');
-            if (!field) return;
-
             const campaignServices = Array.from(panel.querySelectorAll('input[type="checkbox"]:checked'))
                 .filter(input => input.dataset.campaign === '1');
-
             const needed = campaignServices.length > 0;
-            const types = new Set(campaignServices.map(i => i.dataset.reportType).filter(Boolean));
+            campaignField.hidden = !needed;
 
-            field.hidden = !needed;
+            if (!needed) {
+                campaignRequest?.abort();
+                setCampaignLoading(false);
+                selectedCampaignIds.clear();
+                window.metaCampaignGstRate = 0;
+                campaignOptions.replaceChildren();
+                campaignStatus.textContent = 'Select a campaign service and date range to load campaigns.';
+                campaignStatus.hidden = false;
+                campaignTriggerLabel.textContent = '-- Select Campaign(s) --';
+                campaignPanel.dispatchEvent(new Event('change'));
+                return;
+            }
 
-            let visible = 0;
-            field.querySelectorAll('.campaign-option').forEach(opt => {
-                const cb = opt.querySelector('input');
-                const optTypes = (opt.dataset.types || '').split(' ').filter(Boolean);
-                const match = needed && optTypes.some(t => types.has(t));
+            const types = new Set(campaignServices.map(input => input.dataset.reportType).filter(Boolean));
+            const from = fromDate.value;
+            const to = toDate.value;
+            if (!from || !to || to < from) {
+                campaignRequest?.abort();
+                setCampaignLoading(false);
+                selectedCampaignIds.clear();
+                window.metaCampaignGstRate = 0;
+                campaignOptions.replaceChildren();
+                campaignStatus.textContent = 'Choose a valid From Date and To Date to load campaigns.';
+                campaignStatus.hidden = false;
+                campaignTriggerLabel.textContent = '-- Select Campaign(s) --';
+                campaignPanel.dispatchEvent(new Event('change'));
+                return;
+            }
 
-                opt.style.display = match ? '' : 'none';
-                cb.disabled = !match; // disabled inputs are not submitted
-                if (!match) cb.checked = false; // drop selections that no longer apply
-                if (match) visible++;
+            campaignRequest?.abort();
+            campaignRequest = new AbortController();
+            const request = campaignRequest;
+            const params = new URLSearchParams({
+                from_date: from,
+                to_date: to
             });
+            campaignServices.forEach(input => params.append('service_id[]', input.value));
+            campaignOptions.replaceChildren();
+            campaignStatus.textContent = 'Loading Meta Ads campaigns...';
+            campaignStatus.hidden = false;
+            setCampaignLoading(true);
 
-            const none = document.getElementById('campaignNoMatch');
-            if (none) none.style.display = (needed && visible === 0) ? '' : 'none';
+            fetch(`${@json(route('assign-services.campaigns'))}?${params.toString()}`, {
+                headers: { 'Accept': 'application/json' },
+                signal: request.signal
+            })
+                .then(async response => {
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.message || 'Could not load Meta Ads campaigns.');
+                    }
+                    return result;
+                })
+                .then(result => {
+                    if (request.signal.aborted) return;
 
-            // Refresh the campaign trigger label
-            const campaignPanel = document.getElementById('campaignPanel');
-            if (campaignPanel) campaignPanel.dispatchEvent(new Event('change'));
+                    setCampaignLoading(false);
+                    window.metaCampaignGstRate = Number(result.gst_percentage) || 0;
+                    let visible = 0;
+                    (result.campaigns || []).forEach(campaign => {
+                        const campaignTypes = Array.isArray(campaign.types) ? campaign.types : [];
+                        if (!campaignTypes.some(type => types.has(type))) return;
+
+                        const id = String(campaign.campaign_id);
+                        const option = document.createElement('label');
+                        option.className = 'multi-select-option campaign-option';
+                        option.dataset.types = campaignTypes.join(' ');
+                        option.dataset.spend = String(Number(campaign.total_spend) || 0);
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = 'campaign_ids[]';
+                        checkbox.value = id;
+                        checkbox.checked = selectedCampaignIds.has(id);
+                        checkbox.addEventListener('change', () => {
+                            if (checkbox.checked) selectedCampaignIds.add(id);
+                            else selectedCampaignIds.delete(id);
+                        });
+
+                        const name = document.createElement('span');
+                        name.textContent = campaign.campaign_name;
+
+                        option.append(checkbox, name);
+                        campaignOptions.appendChild(option);
+                        visible++;
+                    });
+
+                    campaignStatus.textContent = visible
+                        ? ''
+                        : 'No campaigns match the selected service(s) and date range.';
+                    campaignStatus.hidden = visible > 0;
+                    campaignPanel.dispatchEvent(new Event('change'));
+                })
+                .catch(error => {
+                    if (error.name === 'AbortError') return;
+                    if (request.signal.aborted) return;
+                    setCampaignLoading(false);
+                    selectedCampaignIds.clear();
+                    window.metaCampaignGstRate = 0;
+                    campaignOptions.replaceChildren();
+                    campaignStatus.textContent = `Campaigns could not be loaded: ${error.message}`;
+                    campaignStatus.hidden = false;
+                    campaignTriggerLabel.textContent = '-- Select Campaign(s) --';
+                    campaignPanel.dispatchEvent(new Event('change'));
+                });
         }
 
         panel.addEventListener('change', updateNarrativeFields);
         panel.addEventListener('change', updateCampaignField);
+        window.refreshAssignServiceCampaigns = updateCampaignField;
 
         document.addEventListener('click', (e) => {
             if (!panel.contains(e.target) && e.target !== trigger) {
@@ -455,6 +543,8 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
 
         fromDate.addEventListener('change', syncToDateMin);
         fromDate.addEventListener('input', syncToDateMin);
+        fromDate.addEventListener('change', () => window.refreshAssignServiceCampaigns?.());
+        toDate.addEventListener('change', () => window.refreshAssignServiceCampaigns?.());
         syncToDateMin();
     })();
 
@@ -504,15 +594,21 @@ $showReportNarrativeFields = $selectedReportTypes->isNotEmpty();
             return total;
         }
 
+        function spentIncludingGst() {
+            const amount = spent();
+            const gstAmount = Math.round((amount * (Number(window.metaCampaignGstRate) || 0) / 100 + Number.EPSILON) * 100) / 100;
+            return amount + gstAmount;
+        }
+
         // Returns an error message, or '' when the budget is fine
         function validate() {
             const value = budget.value.trim();
             if (value === '') return 'Budget is required.';
 
-            const spentTotal = spent();
+            const spentTotal = spentIncludingGst();
             if (spentTotal > 0 && parseFloat(value) < spentTotal) {
                 return 'Budget must be at least INR ' + money(spentTotal) +
-                    ' (the amount already spent on the selected campaigns). Please enter a proper budget.';
+                    ' for the selected campaigns. Please enter a proper budget.';
             }
             return '';
         }

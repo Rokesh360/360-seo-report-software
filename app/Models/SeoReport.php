@@ -19,6 +19,7 @@ class SeoReport extends Model
         'images'        => 'array',
         'chart_data'         => 'array',
         'performance_images' => 'array',
+        'ai_reports'         => 'array',
     ];
 
     public function client(): BelongsTo

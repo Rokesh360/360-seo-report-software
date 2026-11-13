@@ -107,6 +107,8 @@ Route::middleware('auth')->group(function () {
     /* ============================================================
      |  Assign Services
      ============================================================ */
+    Route::get('assign-services/campaigns', [AssignServiceController::class, 'campaigns'])
+        ->name('assign-services.campaigns');
     Route::resource('assign-services', AssignServiceController::class);
 
     Route::prefix('assign-services')->name('assign-services.')->group(function () {

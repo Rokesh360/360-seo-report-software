@@ -201,11 +201,16 @@ $icons = [
                     @foreach($deadlineRows as $row)
                     <tr>
                         <td>{{ $row['client'] }}</td>
-                        <td>{{ $row['service'] }}</td>
+                        <td>
+                            {{ $row['service'] }}
+                            @if($lowBudgetRows->contains('id', $row['id']))
+                            <span class="days-pill days-urgent" style="margin-left:6px;">Low budget</span>
+                            @endif
+                        </td>
                         <td style="white-space:nowrap;">{{ $row['from_date'] ? \Carbon\Carbon::parse($row['from_date'])->format('d M Y') : '—' }}</td>
                         <td style="white-space:nowrap;">{{ $row['to_date']->format('d M Y') }}</td>
                         <td>
-                            <span class="days-pill {{ $row['days_left'] <= 2 ? 'days-urgent' : 'days-soon' }}">
+                            <span class="days-pill {{ $row['days_left'] <= $deadlineDays ? 'days-urgent' : 'days-soon' }}">
                                 {{ $row['days_left'] === 0 ? 'Today' : $row['days_left'] . ' ' . \Illuminate\Support\Str::plural('day', $row['days_left']) }}
                             </span>
                         </td>
@@ -224,7 +229,10 @@ $icons = [
         <div class="panel-heading rankings-heading">
             <div>
                 <h2>Low available budget</h2>
-                <p>Remaining budget (incl. GST{{ $gstPercentage !== null ? ' ' . rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '%' : ' not configured' }}) of ₹{{ number_format($lowBudgetLimit) }} or less, sorted from lowest to highest</p>
+                <p>
+                    Budget left within each service's date range (incl. GST{{ $gstPercentage !== null ? ' ' . rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '%' : ' not configured' }})
+                    is ₹{{ number_format($lowBudgetLimit) }} or less, lowest first
+                </p>
             </div>
             <span class="table-summary">
                 {{ $lowBudgetRows->count() }} {{ \Illuminate\Support\Str::plural('record', $lowBudgetRows->count()) }}
@@ -236,8 +244,8 @@ $icons = [
                     <tr>
                         <th>CLIENT</th>
                         <th>SERVICE</th>
-                        <th>DEADLINE</th>
-                        <th>REPORT DATE</th>
+                        <th>DATE RANGE</th>
+                        <th>LAST SPEND DATE</th>
                         <th>BUDGET</th>
                         <th>SPENT (INCL. GST)</th>
                         <th>AVAILABLE (INCL. GST)</th>
@@ -247,8 +255,16 @@ $icons = [
                     @foreach($lowBudgetRows as $row)
                     <tr>
                         <td>{{ $row['client'] }}</td>
-                        <td>{{ $row['service'] }}</td>
-                        <td style="white-space:nowrap;">{{ $row['to_date'] ? \Carbon\Carbon::parse($row['to_date'])->format('d M Y') : '—' }}</td>
+                        <td>
+                            {{ $row['service'] }}
+                            @if($deadlineRows->contains('id', $row['id']))
+                            <span class="days-pill days-urgent" style="margin-left:6px;">Also ending soon</span>
+                            @endif
+                        </td>
+                        <td style="white-space:nowrap;">
+                            {{ \Carbon\Carbon::parse($row['from_date'])->format('d M') }}
+                            – {{ \Carbon\Carbon::parse($row['to_date'])->format('d M Y') }}
+                        </td>
                         <td>{{ $row['date']->format('d M Y') }}</td>
                         <td>₹{{ number_format($row['budget']) }}</td>
                         <td>
@@ -268,6 +284,7 @@ $icons = [
 
     @php
     $lowBudgetPopupRows = $lowBudgetRows->map(fn($r) => [
+    'id' => $r['id'],
     'client' => $r['client'],
     'service' => $r['service'],
     'deadline' => $r['to_date'] ? \Carbon\Carbon::parse($r['to_date'])->format('d M Y') : '—',
@@ -276,6 +293,7 @@ $icons = [
     ])->values()->all();
 
     $deadlinePopupRows = $deadlineRows->map(fn($r) => [
+    'id' => $r['id'],
     'client' => $r['client'],
     'service' => $r['service'],
     'deadline' => $r['to_date']->format('d M Y'),
@@ -300,15 +318,21 @@ $icons = [
 
             const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
+            // Assignments that appear in BOTH alerts
+            const bothIds = deadlineRows.map((r) => r.id).filter((id) => budgetRows.some((b) => b.id === id));
+            const both = (id) => bothIds.includes(id) ?
+                ' <small style="color:#d27663;">(also on the other alert)</small>' :
+                '';
+
             let html = '';
 
             if (deadlineRows.length) {
                 const body = deadlineRows.map((r) => {
                     const label = r.days_left === 0 ? 'Today' : plural(r.days_left, 'day', 'days');
-                    const cls = r.days_left <= 2 ? 'days-urgent' : 'days-soon';
+                    const cls = r.days_left <= deadlineDays ? 'days-urgent' : 'days-soon';
                     return '<tr>' +
                         '<td>' + esc(r.client) + '</td>' +
-                        '<td>' + esc(r.service) + '</td>' +
+                        '<td>' + esc(r.service) + both(r.id) + '</td>' +
                         '<td>' + esc(r.deadline) + '</td>' +
                         '<td><span class="days-pill ' + cls + '">' + esc(label) + '</span></td>' +
                         '</tr>';
@@ -326,7 +350,7 @@ $icons = [
                 const body = budgetRows.map((r) =>
                     '<tr>' +
                     '<td>' + esc(r.client) + '</td>' +
-                    '<td>' + esc(r.service) + '</td>' +
+                    '<td>' + esc(r.service) + both(r.id) + '</td>' +
                     '<td>' + esc(r.deadline) + '</td>' +
                     '<td>' + esc(r.date) + '</td>' +
                     '<td class="lb-low">' + esc(r.available) + '</td>' +
@@ -335,9 +359,9 @@ $icons = [
 
                 html +=
                     '<div class="alert-popup-title">💰 ' + plural(budgetRows.length, 'record has', 'records have') +
-                    ' low remaining budget</div>' +
+                    ' low remaining budget in their date range</div>' +
                     '<div style="max-height:200px;overflow:auto;"><table class="lb-popup-table">' +
-                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>REPORT DATE</th><th>AVAILABLE (INCL. GST)</th></tr></thead>' +
+                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>LAST SPEND DATE</th><th>AVAILABLE (INCL. GST)</th></tr></thead>' +
                     '<tbody>' + body + '</tbody></table></div>';
             }
 
@@ -414,7 +438,7 @@ $icons = [
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;padding:24px;">No clients or reports for this period.</td>
+                        <td colspan="5" style="text-align:center;padding:24px;">No clients or reports for this period.</td>
                     </tr>
                     @endforelse
                 </tbody>

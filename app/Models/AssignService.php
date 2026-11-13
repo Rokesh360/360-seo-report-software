@@ -46,6 +46,7 @@ class AssignService extends Model
         'monthly_summary' => 'array',
         'next_month_plan' => 'array',
         'campaign_ids' => 'array',
+        'low_budget_alert_sent_at' => 'datetime',
     ];
 
     public function client(): BelongsTo

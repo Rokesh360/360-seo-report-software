@@ -3,7 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\Service;
-use App\Models\MetaAdsDailyStat;
+use App\Services\MetaCatalogService;
+use App\Support\Helpers;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AssignServiceRequest extends FormRequest
@@ -19,8 +20,8 @@ class AssignServiceRequest extends FormRequest
             'client_id'    => ['required', 'exists:clients,id'],
             'service_id'   => ['required', 'array', 'min:1'],
             'service_id.*' => ['integer', 'exists:services,id'],
-            'from_date'    => ['required', 'date'],
-            'to_date'      => ['required', 'date', 'after_or_equal:from_date'],
+            'from_date'    => ['required', 'date_format:Y-m-d'],
+            'to_date'      => ['required', 'date_format:Y-m-d', 'after_or_equal:from_date'],
             'title'        => ['required', 'string', 'max:255'],
             'budget'       => ['required', 'integer', 'min:0'],
             'description'  => ['nullable', 'string'],
@@ -32,7 +33,7 @@ class AssignServiceRequest extends FormRequest
             'campaign_focus'     => ['nullable', 'string'],
             'key_highlights'     => ['nullable', 'string'],
             'campaign_ids'   => ['nullable', 'array'],
-            'campaign_ids.*' => ['string', 'exists:meta_ads_daily_stats,campaign_id'],
+            'campaign_ids.*' => ['string', 'regex:/^\d+$/'],
         ];
 
         $reportServiceSelected = Service::query()
@@ -95,6 +96,7 @@ class AssignServiceRequest extends FormRequest
             'next_month_plan.high_performers' => 'high-performing audience plan',
             'next_month_plan.quality_leads' => 'quality leads plan',
             'campaign_ids' => 'campaigns',
+            'campaign_ids.*' => 'Meta Ads campaign',
         ];
     }
 
@@ -112,6 +114,7 @@ class AssignServiceRequest extends FormRequest
             'to_date.after_or_equal' => 'To date must be same or after the from date.',
             'title.required'        => 'Title is required.',
             'status.in'             => 'Status must be either Active or Inactive.',
+            'campaign_ids.*.regex' => 'Select a valid Meta Ads campaign.',
             'key_observations.*.required' => 'Please complete all key observation fields.',
             'performance_highlights.notes.required' => 'Please provide the performance highlights.',
             'monthly_summary.*.required' => 'Please complete all monthly summary fields.',
@@ -140,17 +143,58 @@ class AssignServiceRequest extends FormRequest
                 return;
             }
 
-            $spent = (float) MetaAdsDailyStat::query()
-                ->whereDate('report_date', now()->toDateString())
-                ->whereIn('campaign_id', $campaignIds)
-                ->sum('spend');
+            if ($validator->errors()->has('from_date') || $validator->errors()->has('to_date')) {
+                return;
+            }
+            if ($validator->errors()->has('campaign_ids')) {
+                return;
+            }
+            foreach (array_keys($campaignIds) as $index) {
+                if ($validator->errors()->has("campaign_ids.{$index}")) {
+                    return;
+                }
+            }
+
+            $campaignData = app(MetaCatalogService::class)->campaignsForDateRange(
+                (string) $this->input('from_date'),
+                (string) $this->input('to_date')
+            );
+
+            if (! $campaignData['ok']) {
+                $validator->errors()->add(
+                    'campaign_ids',
+                    $campaignData['error'] ?? 'Could not verify the selected campaigns with Meta.'
+                );
+                return;
+            }
+
+            $campaigns = collect($campaignData['data'] ?? [])
+                ->filter(fn ($campaign) => is_array($campaign)
+                    && isset($campaign['campaign_id'], $campaign['spend'])
+                    && is_numeric($campaign['spend']))
+                ->keyBy(fn ($campaign) => (string) $campaign['campaign_id']);
+            $selectedIds = collect($campaignIds)->map(fn ($id) => (string) $id);
+            $unavailableIds = $selectedIds->diff($campaigns->keys());
+
+            if ($unavailableIds->isNotEmpty()) {
+                $validator->errors()->add(
+                    'campaign_ids',
+                    'One or more selected campaigns did not have results in the chosen date range.'
+                );
+                return;
+            }
+
+            $spent = $selectedIds->sum(fn ($id) => (float) ($campaigns->get($id)['spend'] ?? 0));
+            $gstPercentage = Helpers::gstPercentage() ?? 0;
+            $gstAmount = round($spent * $gstPercentage / 100, 2);
+            $spentIncludingGst = $spent + $gstAmount;
             $budget = (float) $this->input('budget');
 
-            if ($budget < $spent) {
+            if ($budget < $spentIncludingGst) {
                 $validator->errors()->add(
                     'budget',
-                    'Budget must be at least INR ' . number_format($spent, 2)
-                        . ' (the amount already spent on the selected campaigns). Please enter a proper budget.'
+                    'Budget must be at least INR ' . number_format($spentIncludingGst, 2)
+                        . ' for the selected campaigns. Please enter a proper budget.'
                 );
             }
         });

@@ -5,6 +5,8 @@ namespace App\Support;
 use App\Models\AssignService;
 use App\Models\MetaAdsDailyStat;
 use App\Models\SocialMediaReport;
+use App\Models\Service;
+use App\Models\GstMaster;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -14,6 +16,37 @@ final class Helpers
     public const PALETTE = ['#2f855a', '#3182ce', '#dd6b20', '#805ad5', '#d53f8c', '#319795'];
     public const DEADLINE_ALERT_DAYS = 2;
     public const LOW_BUDGET_LIMIT = 1500;
+
+    /**
+     * Clean campaign IDs based on selected service availability.
+     */
+    public static function cleanCampaigns(array $data): array
+    {
+        return self::campaignAvailabilityCallback(
+            $data,
+            function (array $data, bool $available): array {
+                $data['campaign_ids'] = $available && ! empty($data['campaign_ids'])
+                    ? array_values($data['campaign_ids'])
+                    : null;
+
+                return $data;
+            }
+        );
+    }
+
+    /**
+     * Private campaign availability checker with callback.
+     */
+    private static function campaignAvailabilityCallback(
+        array $data,
+        callable $callback
+    ): array {
+        $available = Service::whereIn('id', $data['service_id'] ?? [])
+            ->where('is_campaign_available', true)
+            ->exists();
+
+        return $callback($data, $available);
+    }
 
     public static function deadlineRows(Collection $assignServices, ?int $clientId): Collection
     {
@@ -30,6 +63,7 @@ final class Helpers
                 }
 
                 return [
+                    'id' => $a->id,
                     'client' => $a->client?->name ?? 'Unknown client',
                     'service' => $a->title ?: 'Service #' . $a->id,
                     'from_date' => $a->from_date,
@@ -75,44 +109,71 @@ final class Helpers
             ]);
     }
 
-    public static function lowBudgetRows(Collection $assignServices, ?int $clientId): Collection
+    public static function lowBudgetRows(Collection $assignServices, ?int $clientId, float $gstRate = 0.0): Collection
     {
+        $assignments = $assignServices->filter(function ($a) use ($clientId) {
+            return (! $clientId || (int) $a->client_id === $clientId)
+                && ($a->status === null || (int) $a->status === 1)
+                && ! empty($a->campaign_ids)
+                && $a->from_date
+                && $a->to_date;
+        });
+
+        if ($assignments->isEmpty()) {
+            return collect();
+        }
+
+        $campaignIds = $assignments
+            ->flatMap(fn($a) => $a->campaign_ids)
+            ->map(fn($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        // One query covering the widest date window, then split per assignment in memory.
         $stats = MetaAdsDailyStat::query()
-            ->selectRaw('campaign_id, SUM(spend) as spent, MAX(report_date) as last_date')
-            ->groupBy('campaign_id')
-            ->get()
-            ->keyBy(fn($row) => (string) $row->campaign_id);
+            ->whereIn('campaign_id', $campaignIds)
+            ->whereBetween('report_date', [
+                $assignments->min(fn($a) => $a->from_date->toDateString()),
+                $assignments->max(fn($a) => $a->to_date->toDateString()),
+            ])
+            ->get(['campaign_id', 'report_date', 'spend'])
+            ->groupBy(fn($row) => (string) $row->campaign_id);
 
-        return $assignServices
-            ->filter(function ($a) use ($clientId) {
-                return (! $clientId || (int) $a->client_id === $clientId)
-                    && ($a->status === null || (int) $a->status === 1)
-                    && ! empty($a->campaign_ids);
-            })
-            ->map(function ($a) use ($stats) {
-                $campaignStats = collect($a->campaign_ids)
-                    ->map(fn($id) => $stats->get((string) $id))
-                    ->filter();
+        return $assignments
+            ->map(function ($a) use ($stats, $gstRate) {
+                $from = $a->from_date->toDateString();
+                $to   = $a->to_date->toDateString();
 
-                $budget = (float) $a->budget;
-                $spent = (float) $campaignStats->sum('spent');
-                $available = $budget - $spent;
+                // Only spend that falls inside this assignment's date range
+                $inRange = collect($a->campaign_ids)
+                    ->flatMap(fn($id) => $stats->get((string) $id, collect()))
+                    ->filter(function ($row) use ($from, $to) {
+                        $d = $row->report_date->toDateString();
+                        return $d >= $from && $d <= $to;
+                    });
+
+                $budget    = (float) $a->budget;
+                $spentExcl = (float) $inRange->sum('spend');
+                $spentIncl = $spentExcl * (1 + $gstRate);
+                $available = $budget - $spentIncl;
 
                 if ($available > self::LOW_BUDGET_LIMIT) {
                     return null;
                 }
 
-                $lastDate = $campaignStats->max('last_date');
+                $lastDate = $inRange->max(fn($row) => $row->report_date->toDateString());
 
                 return [
-                    'client' => $a->client?->name ?? 'Unknown client',
-                    'service' => $a->title ?: 'Service #' . $a->id,
-                    'from_date' => $a->from_date,
-                    'to_date' => $a->to_date,
-                    'date' => $lastDate ? Carbon::parse($lastDate) : now(),
-                    'budget' => $budget,
-                    'spent' => $spent,
-                    'available' => $available,
+                    'id'             => $a->id,
+                    'client'         => $a->client?->name ?? 'Unknown client',
+                    'service'        => $a->title ?: 'Service #' . $a->id,
+                    'from_date'      => $a->from_date,
+                    'to_date'        => $a->to_date,
+                    'date'           => $lastDate ? Carbon::parse($lastDate) : now(),
+                    'budget'         => $budget,
+                    'spent_excl_gst' => $spentExcl,
+                    'spent'          => $spentIncl,   // incl. GST
+                    'available'      => $available,   // budget − (spent + GST)
                 ];
             })
             ->filter()
@@ -546,6 +607,369 @@ final class Helpers
         return self::toDataUri($im);
     }
 
+    /**
+     * Calculate click percentages for Google Ads demographics.
+     */
+    public static function addClickPercentages(array $data): array
+    {
+        return self::clickPercentageCallback(
+            $data,
+            function (array $data, int $totalClicks): array {
+                $data['demographics'] = collect($data['demographics'] ?? [])
+                    ->map(function (array $row) use ($totalClicks): array {
+                        $clicks = (int) ($row['clicks'] ?? 0);
+
+                        $row['click_percentage'] = $totalClicks > 0
+                            ? round($clicks / $totalClicks * 100, 1)
+                            : 0;
+
+                        return $row;
+                    })
+                    ->values()
+                    ->all();
+
+                return $data;
+            }
+        );
+    }
+
+    /**
+     * Private callback for calculating click percentages.
+     */
+    private static function clickPercentageCallback(
+        array $data,
+        callable $callback
+    ): array {
+        $totalClicks = (int) ($data['clicks'] ?? 0);
+
+        return $callback($data, $totalClicks);
+    }
+
+    /**
+     * Get Google Ads service types from an assignment.
+     */
+    public static function googleAdsServices(AssignService $assignment): Collection
+    {
+        return self::googleAdsServicesCallback(
+            $assignment,
+            function (AssignService $assignment): Collection {
+                return $assignment->getServices()
+                    ->map(fn($service) => self::googleAdsTypeFromServiceName($service->name))
+                    ->filter()
+                    ->unique()
+                    ->values();
+            }
+        );
+    }
+
+    /**
+     * Private callback for Google Ads service detection.
+     */
+    private static function googleAdsServicesCallback(
+        AssignService $assignment,
+        callable $callback
+    ): Collection {
+        return $callback($assignment);
+    }
+
+    /**
+     * Ensure assignment supports Google Ads.
+     */
+    public static function ensureGoogleAdsAssignment(AssignService $assignment): void
+    {
+        self::ensureGoogleAdsAssignmentCallback(
+            $assignment,
+            function (Collection $services): void {
+                abort_if($services->isEmpty(), 404);
+            }
+        );
+    }
+
+    /**
+     * Private callback for Google Ads assignment validation.
+     */
+    private static function ensureGoogleAdsAssignmentCallback(
+        AssignService $assignment,
+        callable $callback
+    ): void {
+        $services = self::googleAdsServices($assignment);
+
+        $callback($services);
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| Meta Catalog — primary campaign result
+|--------------------------------------------------------------------------
+*/
+
+    public static function primaryResult(array $campaign): ?array
+    {
+        return self::primaryResultCallback(
+            $campaign,
+            function (array $campaign): ?array {
+                $map = [
+                    'lead' => 'Leads',
+                    'offsite_conversion.fb_pixel_lead' => 'Leads',
+                    'onsite_conversion.lead_grouped' => 'Leads',
+                    'offsite_complete_registration_add_meta_leads' => 'Registrations',
+                    'offsite_search_add_meta_leads' => 'Searches',
+                    'offsite_content_view_add_meta_leads' => 'Content views',
+                    'purchase' => 'Purchases',
+                    'offsite_conversion.fb_pixel_purchase' => 'Purchases',
+                    'add_to_cart' => 'Add to cart',
+                    'initiate_checkout' => 'Checkouts',
+                    'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations',
+                    'link_click' => 'Link clicks',
+                    'post_engagement' => 'Post engagement',
+                    'video_view' => 'Video views',
+                ];
+
+                $actions = collect($campaign['actions'] ?? [])
+                    ->filter(fn($action) => isset($action['action_type'], $action['value']))
+                    ->keyBy('action_type');
+
+                foreach ($map as $type => $label) {
+                    if ($actions->has($type)) {
+                        return [
+                            'label' => $label,
+                            'value' => (float) $actions[$type]['value'],
+                        ];
+                    }
+                }
+
+                return null;
+            }
+        );
+    }
+
+    private static function primaryResultCallback(
+        array $campaign,
+        callable $callback
+    ): ?array {
+        return $callback($campaign);
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — GST percentage
+|--------------------------------------------------------------------------
+*/
+
+    public static function gstPercentage(): ?float
+    {
+        return self::gstPercentageCallback(
+            function (): ?float {
+                $percentage = GstMaster::query()
+                    ->where('status', true)
+                    ->latest('id')
+                    ->value('percentage');
+
+                return $percentage === null ? null : (float) $percentage;
+            }
+        );
+    }
+
+    private static function gstPercentageCallback(callable $callback): ?float
+    {
+        return $callback();
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — parse amount
+|--------------------------------------------------------------------------
+*/
+
+    public static function parseAmount(mixed $value): float
+    {
+        return self::parseAmountCallback(
+            $value,
+            fn($value): float => (float) preg_replace(
+                '/[^0-9.]/',
+                '',
+                (string) $value
+            )
+        );
+    }
+
+    private static function parseAmountCallback(
+        mixed $value,
+        callable $callback
+    ): float {
+        return $callback($value);
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — spend summary
+|--------------------------------------------------------------------------
+*/
+
+    public static function spendSummary(SocialMediaReport $report): array
+    {
+        return self::spendSummaryCallback(
+            $report,
+            function (SocialMediaReport $report): array {
+                $budget = (float) ($report->assignService?->budget ?? 0);
+
+                $spent = collect($report->campaign_results ?? [])
+                    ->sum(fn($row) => self::parseAmount($row['spend'] ?? 0));
+
+                $gstPercentage = self::gstPercentage();
+
+                $gstAmount = $gstPercentage === null
+                    ? 0
+                    : round($spent * $gstPercentage / 100, 2);
+
+                $spentIncludingGst = $spent + $gstAmount;
+
+                return [
+                    'budget'              => $budget,
+                    'spent'               => $spent,
+                    'gst_percentage'      => $gstPercentage,
+                    'gst_amount'          => $gstAmount,
+                    'spent_including_gst' => $spentIncludingGst,
+                    'available'           => $budget - $spentIncludingGst,
+                ];
+            }
+        );
+    }
+
+    private static function spendSummaryCallback(
+        SocialMediaReport $report,
+        callable $callback
+    ): array {
+        return $callback($report);
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — multiple spend summaries
+|--------------------------------------------------------------------------
+*/
+
+    public static function spendSummariesFor($reports): array
+    {
+        return self::spendSummariesCallback(
+            $reports,
+            function ($reports): array {
+                $summaries = [];
+
+                foreach ($reports as $report) {
+                    $report->loadMissing('assignService');
+
+                    $summaries[$report->id] = self::spendSummary($report);
+                }
+
+                return $summaries;
+            }
+        );
+    }
+
+    private static function spendSummariesCallback(
+        $reports,
+        callable $callback
+    ): array {
+        return $callback($reports);
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — report types
+|--------------------------------------------------------------------------
+*/
+
+    public static function reportTypesFor($reports, array $assignServices): array
+    {
+        return self::reportTypesCallback(
+            $reports,
+            $assignServices,
+            function ($reports, array $assignServices): array {
+                $nameToType = [
+                    'WhatsApp Meta Ads Monthly Report' => 'whatsapp_meta_ads',
+                    'Lead Generation Ads Monthly Report' => 'lead_generation_ads',
+                    'Social Media Engagement Monthly Report' => 'social_media_engagement',
+                ];
+
+                $serviceNames = Service::pluck('name', 'id');
+                $result = [];
+
+                foreach ($reports as $report) {
+                    $assignment = $assignServices[(int) $report->assign_service_id] ?? null;
+                    $serviceIds = $assignment?->service_id;
+
+                    $ids = is_array($serviceIds)
+                        ? $serviceIds
+                        : array_filter([(int) $serviceIds]);
+
+                    $types = collect($ids)
+                        ->map(fn($serviceId) => $nameToType[$serviceNames[$serviceId] ?? ''] ?? null)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    $result[$report->id] = $types;
+                }
+
+                return $result;
+            }
+        );
+    }
+
+    private static function reportTypesCallback(
+        $reports,
+        array $assignServices,
+        callable $callback
+    ): array {
+        return $callback($reports, $assignServices);
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Social Media Reports — load assigned services for PDF
+|--------------------------------------------------------------------------
+*/
+
+    public static function assignServicesFor($reports): array
+    {
+        return self::assignServicesCallback(
+            $reports,
+            function ($reports): array {
+                $ids = collect($reports)
+                    ->pluck('assign_service_id')
+                    ->filter(fn($id) => filter_var($id, FILTER_VALIDATE_INT) !== false)
+                    ->map(fn($id) => (int) $id)
+                    ->unique()
+                    ->values();
+
+                if ($ids->isEmpty()) {
+                    return [];
+                }
+
+                return AssignService::with('client')
+                    ->whereIn('id', $ids)
+                    ->get()
+                    ->keyBy('id')
+                    ->all();
+            }
+        );
+    }
+
+    private static function assignServicesCallback(
+        $reports,
+        callable $callback
+    ): array {
+        return $callback($reports);
+    }
+
     private static function metaTotals(Collection $rows): array
     {
         $spend = round((float) $rows->sum('spend'), 2);
@@ -646,7 +1070,32 @@ final class Helpers
 
     private static function campaignTypes(object $c): array
     {
-        $name  = strtolower($c->campaign_name ?? '');
+        return self::campaignTypesFor(
+            (string) ($c->campaign_name ?? ''),
+            (float) ($c->total_leads ?? 0) > 0,
+            (float) ($c->total_msgs ?? 0) > 0
+        );
+    }
+
+    public static function campaignTypesFromApi(array $campaign): array
+    {
+        $actions = collect($campaign['actions'] ?? [])
+            ->filter(fn($action) => is_array($action)
+                && isset($action['action_type'], $action['value'])
+                && is_numeric($action['value'])
+                && (float) $action['value'] > 0)
+            ->keyBy('action_type');
+
+        return self::campaignTypesFor(
+            (string) ($campaign['campaign_name'] ?? ''),
+            $actions->has('lead') || $actions->has('onsite_conversion.lead_grouped'),
+            $actions->has('onsite_conversion.messaging_conversation_started_7d')
+        );
+    }
+
+    private static function campaignTypesFor(string $campaignName, bool $hasLeads, bool $hasMessages): array
+    {
+        $name  = strtolower($campaignName);
         $types = [];
 
         if (preg_match('/whats\s?app|\bwa\b/', $name)) {
@@ -661,22 +1110,14 @@ final class Helpers
 
         // Name gave no hint: fall back to what the campaign actually produced
         if (! $types) {
-            $types = self::campaignTypesFromStats($c);
+            if ($hasLeads) {
+                return ['lead_generation_ads'];
+            }
+            if ($hasMessages) {
+                return ['whatsapp_meta_ads'];
+            }
         }
 
         return $types;
-    }
-
-    private static function campaignTypesFromStats(object $c): array
-    {
-        if ($c->total_leads > 0) {
-            return ['lead_generation_ads'];
-        }
-
-        if ($c->total_msgs > 0) {
-            return ['whatsapp_meta_ads'];
-        }
-
-        return [];
     }
 }

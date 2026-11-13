@@ -18,7 +18,7 @@ class GoogleAdsReportController extends Controller
     public function index(): View
     {
         $assignments = AssignService::with('client')->get()
-            ->filter(fn (AssignService $assignment) => $this->googleAdsServices($assignment)->isNotEmpty());
+            ->filter(fn (AssignService $assignment) => Helpers::googleAdsServices($assignment)->isNotEmpty());
         $clients = Client::query()->whereIn('id', $assignments->pluck('client_id')->unique())
             ->where('status', true)->orderBy('name')->get();
 
@@ -31,7 +31,7 @@ class GoogleAdsReportController extends Controller
             ->where('client_id', $client->id)
             ->orderByDesc('from_date')
             ->get()
-            ->filter(fn (AssignService $assignment) => $this->googleAdsServices($assignment)->isNotEmpty())
+            ->filter(fn (AssignService $assignment) => Helpers::googleAdsServices($assignment)->isNotEmpty())
             ->values();
 
         return view('google_ads.client_services', compact('client', 'assignments'));
@@ -39,7 +39,7 @@ class GoogleAdsReportController extends Controller
 
     public function previousMetrics(AssignService $assignService): View
     {
-        $this->ensureGoogleAdsAssignment($assignService);
+        Helpers::ensureGoogleAdsAssignment($assignService);
         $assignService->load('client');
         $report = GoogleAdsReport::where('assign_service_id', $assignService->id)->first();
 
@@ -50,7 +50,7 @@ class GoogleAdsReportController extends Controller
     {
         $assignServiceId = request()->integer('assign_service_id');
         $assignService = AssignService::with('client')->findOrFail($assignServiceId);
-        $this->ensureGoogleAdsAssignment($assignService);
+        Helpers::ensureGoogleAdsAssignment($assignService);
 
         $existing = GoogleAdsReport::where('assign_service_id', $assignService->id)->first();
         if ($existing) {
@@ -73,7 +73,7 @@ class GoogleAdsReportController extends Controller
             ->all();
         $report = GoogleAdsReport::create([
             'assign_service_id' => $assignment->id,
-            'data' => $this->addClickPercentages($request->validated('data')),
+            'data' => Helpers::addClickPercentages($request->validated('data')),
             'overview_images' => $imagePaths,
         ]);
 
@@ -86,7 +86,7 @@ class GoogleAdsReportController extends Controller
         $googleAdsReport->load('assignService.client');
         $assignment = $googleAdsReport->assignService;
         abort_if(! $assignment, 404);
-        $this->ensureGoogleAdsAssignment($assignment);
+        Helpers::ensureGoogleAdsAssignment($assignment);
 
         return view('google_ads.form', [
             'assignService' => $assignment,
@@ -110,7 +110,7 @@ class GoogleAdsReportController extends Controller
         }
 
         $googleAdsReport->update([
-            'data' => $this->addClickPercentages($request->validated('data')),
+            'data' => Helpers::addClickPercentages($request->validated('data')),
             'overview_images' => $imagePaths,
         ]);
         Storage::disk('public')->delete($removedImages);
@@ -133,42 +133,12 @@ class GoogleAdsReportController extends Controller
         $googleAdsReport->load('assignService.client');
         $assignment = $googleAdsReport->assignService;
         abort_if(! $assignment, 404);
-        $this->ensureGoogleAdsAssignment($assignment);
-        $serviceType = $this->googleAdsServices($assignment)->first();
+        Helpers::ensureGoogleAdsAssignment($assignment);
+        $serviceType = Helpers::googleAdsServices($assignment)->first();
 
         return Pdf::loadView('google_ads.pdf.report', compact('googleAdsReport', 'assignment', 'serviceType'))
             ->setPaper('a4', 'portrait')
             ->setOption(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => true])
             ->download('google-ads-report-' . $googleAdsReport->id . '.pdf');
-    }
-
-    private function addClickPercentages(array $data): array
-    {
-        $totalClicks = (int) ($data['clicks'] ?? 0);
-        $data['demographics'] = collect($data['demographics'] ?? [])
-            ->map(function (array $row) use ($totalClicks): array {
-                $clicks = (int) ($row['clicks'] ?? 0);
-                $row['click_percentage'] = $totalClicks > 0 ? round($clicks / $totalClicks * 100, 1) : 0;
-
-                return $row;
-            })
-            ->values()
-            ->all();
-
-        return $data;
-    }
-
-    private function ensureGoogleAdsAssignment(AssignService $assignment): void
-    {
-        abort_if($this->googleAdsServices($assignment)->isEmpty(), 404);
-    }
-
-    private function googleAdsServices(AssignService $assignment): Collection
-    {
-        return $assignment->getServices()
-            ->map(fn ($service) => Helpers::googleAdsTypeFromServiceName($service->name))
-            ->filter()
-            ->unique()
-            ->values();
     }
 }

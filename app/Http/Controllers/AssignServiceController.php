@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignServiceRequest;
-use App\Models\MetaAdsDailyStat;
 use App\Models\AssignService;
 use App\Models\Client;
 use App\Models\Service;
 use App\Repositories\AssignServiceRepository;
 use App\Support\Helpers;
+use App\Services\MetaCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,20 +19,6 @@ class AssignServiceController extends Controller
         protected AssignServiceRepository $repository
     ) {
         //
-    }
-
-    /** Keep campaign_ids only if a selected service supports campaigns. */
-    private function cleanCampaigns(array $data): array
-    {
-        $available = Service::whereIn('id', $data['service_id'] ?? [])
-            ->where('is_campaign_available', true)
-            ->exists();
-
-        $data['campaign_ids'] = $available && ! empty($data['campaign_ids'])
-            ? array_values($data['campaign_ids'])
-            : null;
-
-        return $data;
     }
 
     public function index(Request $request): View
@@ -68,7 +54,6 @@ class AssignServiceController extends Controller
         return view('assign-services.create', [
             'client'           => $client,
             'services'         => Service::orderBy('name')->get(),
-            'campaigns'        => Helpers::campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $clientId,
         ]);
@@ -76,7 +61,7 @@ class AssignServiceController extends Controller
 
     public function store(AssignServiceRequest $request): RedirectResponse
     {
-        $data = $this->cleanCampaigns($request->validated());
+        $data = Helpers::cleanCampaigns($request->validated());
 
         // Force the client from the query string / request — never trust the form
         $data['client_id'] = $request->integer('client')
@@ -105,7 +90,6 @@ class AssignServiceController extends Controller
             'assignService'    => $assignService,
             'client'           => $assignService->client,
             'services'         => Service::orderBy('name')->get(),
-            'campaigns'        => Helpers::campaignOptions(),
             'active'           => 'assign-services',
             'selectedClientId' => $assignService->client_id,
         ]);
@@ -114,7 +98,7 @@ class AssignServiceController extends Controller
     public function update(AssignServiceRequest $request, int $id): RedirectResponse
     {
         $assignService = $this->repository->find($id);
-        $this->repository->update($assignService, $this->cleanCampaigns($request->validated()));
+        $this->repository->update($assignService, Helpers::cleanCampaigns($request->validated()));
 
         return redirect()
             ->route('assign-services.index')
@@ -167,6 +151,55 @@ class AssignServiceController extends Controller
             'target_audience'    => $assignment->target_audience,
             'campaign_focus'     => $assignment->campaign_focus,
             'key_highlights'     => $assignment->key_highlights,
+        ]);
+    }
+
+    public function campaigns(Request $request, MetaCatalogService $meta)
+    {
+        $validated = $request->validate([
+            'service_id' => ['required', 'array', 'min:1'],
+            'service_id.*' => ['required', 'integer', 'exists:services,id'],
+            'from_date' => ['required', 'date_format:Y-m-d'],
+            'to_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+        ]);
+
+        $hasCampaignService = Service::query()
+            ->whereIn('id', $validated['service_id'])
+            ->where('is_campaign_available', true)
+            ->exists();
+
+        if (! $hasCampaignService) {
+            return response()->json([
+                'message' => 'Select a service that supports Meta Ads campaigns.',
+            ], 422);
+        }
+
+        $result = $meta->campaignsForDateRange($validated['from_date'], $validated['to_date']);
+
+        if (! $result['ok']) {
+            return response()->json([
+                'message' => $result['error'] ?? 'Could not load Meta Ads campaigns.',
+            ], 502);
+        }
+
+        $campaigns = collect($result['data'] ?? [])
+            ->filter(fn ($campaign) => is_array($campaign)
+                && ! empty($campaign['campaign_id'])
+                && isset($campaign['spend'])
+                && is_numeric($campaign['spend']))
+            ->map(fn (array $campaign) => [
+                'campaign_id' => (string) $campaign['campaign_id'],
+                'campaign_name' => (string) ($campaign['campaign_name'] ?? $campaign['campaign_id']),
+                'total_spend' => (float) $campaign['spend'],
+                'currency' => (string) ($campaign['account_currency'] ?? 'INR'),
+                'types' => Helpers::campaignTypesFromApi($campaign),
+            ])
+            ->sortBy('campaign_name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return response()->json([
+            'campaigns' => $campaigns,
+            'gst_percentage' => Helpers::gstPercentage(),
         ]);
     }
 }
