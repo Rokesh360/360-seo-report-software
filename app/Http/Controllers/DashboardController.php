@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Support\Helpers;
 use App\Models\AssignService;
 use App\Models\Client;
-use App\Models\GstMaster;
+use App\Services\MetaCatalogService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, MetaCatalogService $meta)
     {
         $month     = Helpers::resolveMonth($request->query('month'));
         $start     = $month->copy()->startOfMonth();
@@ -77,15 +77,26 @@ class DashboardController extends Controller
 
         /* ---------------- Tables ---------------- */
         $clientRows    = Helpers::clientRows($assignServices, $assignById, $current, $start, $end, $clientId);
-        $gstPercentage = GstMaster::query()
-            ->where('status', true)
-            ->latest('id')
-            ->value('percentage');
-        $gstRate = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
+        $gstPercentage = Helpers::gstPercentage();
+        $gstRate = ($gstPercentage ?? 0) / 100;
+        $budgetAssignments = $assignServices->filter(fn ($assignment) =>
+            (! $clientId || (int) $assignment->client_id === $clientId)
+                && ($assignment->status === null || (int) $assignment->status === 1)
+                && ! empty($assignment->campaign_ids)
+                && $assignment->from_date
+                && $assignment->to_date
+        );
+        $spendByAssignmentId = [];
+        foreach ($budgetAssignments as $assignment) {
+            $spendByAssignmentId[$assignment->id] = $meta->campaignSpendForDateRange(
+                $assignment->campaign_ids,
+                $assignment->from_date->toDateString(),
+                $assignment->to_date->toDateString()
+            );
+        }
 
-        // Spend is counted only inside each assignment's from_date..to_date,
-        // GST is applied inside the helper, and rows are already filtered/sorted.
-        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId, $gstRate);
+        // Available budget is reduced by the live Meta spend plus GST.
+        $lowBudgetRows = Helpers::lowBudgetRows($assignServices, $clientId, $spendByAssignmentId, $gstRate);
 
         // Independent of the low-budget list: an assignment can appear in both.
         $deadlineRows = Helpers::deadlineRows($assignServices, $clientId);

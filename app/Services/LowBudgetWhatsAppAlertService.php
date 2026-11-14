@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\AssignService;
-use App\Models\GstMaster;
-use App\Models\MetaAdsDailyStat;
 use App\Support\Helpers;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +11,10 @@ use RuntimeException;
 
 class LowBudgetWhatsAppAlertService
 {
+    public function __construct(private MetaCatalogService $meta)
+    {
+    }
+
     public function sendNewAlerts(): int
     {
         $recipients = $this->recipients();
@@ -43,17 +45,15 @@ class LowBudgetWhatsAppAlertService
             $version .= '.0';
         }
 
-        $gstPercentage = GstMaster::query()
-            ->where('status', true)
-            ->latest('id')
-            ->value('percentage');
-        $gstRate = $gstPercentage !== null ? (float) $gstPercentage / 100 : 0;
         $sent = 0;
+        $gstRate = (Helpers::gstPercentage() ?? 0) / 100;
 
         $assignments = AssignService::query()
             ->with('client:id,name')
             ->active()
             ->whereNotNull('campaign_ids')
+            ->whereNotNull('from_date')
+            ->whereNotNull('to_date')
             ->get();
 
         foreach ($assignments as $assignment) {
@@ -61,22 +61,20 @@ class LowBudgetWhatsAppAlertService
                 continue;
             }
 
-            $campaignIds = collect($assignment->campaign_ids)->map(fn($id) => (string) $id);
-            $spent = (float) MetaAdsDailyStat::query()
-                ->whereBetween('report_date', [
-                    $assignment->from_date->toDateString(),
-                    $assignment->to_date->toDateString(),
-                ])
-                ->whereIn('campaign_id', $campaignIds)
-                ->sum('spend');
-            $available = (float) $assignment->budget - ($spent * (1 + $gstRate));
+            $spentExclGst = $this->meta->campaignSpendForDateRange(
+                $assignment->campaign_ids,
+                $assignment->from_date->toDateString(),
+                $assignment->to_date->toDateString()
+            );
+            $spent = round($spentExclGst * (1 + $gstRate), 2);
+            $available = round((float) $assignment->budget - $spent, 2);
 
-            Log::info('Low budget check', [
-                'assignment'   => $assignment->id,
-                'available'    => $available,
-                'limit'        => Helpers::LOW_BUDGET_LIMIT,
-                'already_sent' => $assignment->low_budget_alert_sent_at,
-            ]);
+            // Log::info('Low budget check', [
+            //     'assignment'   => $assignment->id,
+            //     'available'    => $available,
+            //     'limit'        => Helpers::LOW_BUDGET_LIMIT,
+            //     'already_sent' => $assignment->low_budget_alert_sent_at,
+            // ]);
 
             if ($available > Helpers::LOW_BUDGET_LIMIT) {
                 if ($assignment->low_budget_alert_sent_at !== null) {
@@ -104,8 +102,8 @@ class LowBudgetWhatsAppAlertService
                         'parameters' => [
                             ['type' => 'text', 'text' => $assignment->client?->name ?? 'Unknown client'],
                             ['type' => 'text', 'text' => $assignment->title ?: 'Service #' . $assignment->id],
-                            ['type' => 'text', 'text' => '₹' . number_format($available)],
-                            ['type' => 'text', 'text' => '₹' . number_format($spent * (1 + $gstRate))],
+                            ['type' => 'text', 'text' => '₹' . number_format($available, 2)],
+                            ['type' => 'text', 'text' => '₹' . number_format($spent, 2)],
                             ['type' => 'text', 'text' => '₹' . number_format((float) $assignment->budget)],
                         ],
                     ]];

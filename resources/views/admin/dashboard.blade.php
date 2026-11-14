@@ -230,7 +230,7 @@ $icons = [
             <div>
                 <h2>Low available budget</h2>
                 <p>
-                    Budget left within each service's date range (incl. GST{{ $gstPercentage !== null ? ' ' . rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '%' : ' not configured' }})
+                    Assigned budget minus Meta campaign spend{{ $gstPercentage !== null ? ' including ' . rtrim(rtrim(number_format((float) $gstPercentage, 2), '0'), '.') . '% GST' : ' (GST not configured)' }} within each service's date range
                     is ₹{{ number_format($lowBudgetLimit) }} or less, lowest first
                 </p>
             </div>
@@ -245,10 +245,10 @@ $icons = [
                         <th>CLIENT</th>
                         <th>SERVICE</th>
                         <th>DATE RANGE</th>
-                        <th>LAST SPEND DATE</th>
                         <th>BUDGET</th>
-                        <th>SPENT (INCL. GST)</th>
-                        <th>AVAILABLE (INCL. GST)</th>
+                        <th>META SPEND (EXCL. GST)</th>
+                        <th>SPEND (INCL. GST)</th>
+                        <th>AVAILABLE</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -265,15 +265,10 @@ $icons = [
                             {{ \Carbon\Carbon::parse($row['from_date'])->format('d M') }}
                             – {{ \Carbon\Carbon::parse($row['to_date'])->format('d M Y') }}
                         </td>
-                        <td>{{ $row['date']->format('d M Y') }}</td>
                         <td>₹{{ number_format($row['budget']) }}</td>
-                        <td>
-                            ₹{{ number_format($row['spent']) }}
-                            @if($gstPercentage !== null)
-                            <span class="keyword-url">Excl. GST: ₹{{ number_format($row['spent_excl_gst']) }}</span>
-                            @endif
-                        </td>
-                        <td><strong style="color:#d27663;">₹{{ number_format($row['available']) }}</strong></td>
+                        <td>₹{{ number_format($row['spent_excl_gst'], 2) }}</td>
+                        <td>₹{{ number_format($row['spent'], 2) }}</td>
+                        <td><strong style="color:#d27663;">₹{{ number_format($row['available'], 2) }}</strong></td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -288,8 +283,8 @@ $icons = [
     'client' => $r['client'],
     'service' => $r['service'],
     'deadline' => $r['to_date'] ? \Carbon\Carbon::parse($r['to_date'])->format('d M Y') : '—',
-    'date' => $r['date']->format('d M Y'),
-    'available' => '₹' . number_format($r['available']),
+    'spent' => '₹' . number_format($r['spent'], 2),
+    'available' => '₹' . number_format($r['available'], 2),
     ])->values()->all();
 
     $deadlinePopupRows = $deadlineRows->map(fn($r) => [
@@ -352,7 +347,7 @@ $icons = [
                     '<td>' + esc(r.client) + '</td>' +
                     '<td>' + esc(r.service) + both(r.id) + '</td>' +
                     '<td>' + esc(r.deadline) + '</td>' +
-                    '<td>' + esc(r.date) + '</td>' +
+                    '<td>' + esc(r.spent) + '</td>' +
                     '<td class="lb-low">' + esc(r.available) + '</td>' +
                     '</tr>'
                 ).join('');
@@ -361,7 +356,7 @@ $icons = [
                     '<div class="alert-popup-title">💰 ' + plural(budgetRows.length, 'record has', 'records have') +
                     ' low remaining budget in their date range</div>' +
                     '<div style="max-height:200px;overflow:auto;"><table class="lb-popup-table">' +
-                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DEADLINE</th><th>LAST SPEND DATE</th><th>AVAILABLE (INCL. GST)</th></tr></thead>' +
+                    '<thead><tr><th>CLIENT</th><th>SERVICE</th><th>DATE RANGE END</th><th>SPENT (INCL. GST)</th><th>AVAILABLE</th></tr></thead>' +
                     '<tbody>' + body + '</tbody></table></div>';
             }
 

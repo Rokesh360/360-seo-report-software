@@ -109,8 +109,12 @@ final class Helpers
             ]);
     }
 
-    public static function lowBudgetRows(Collection $assignServices, ?int $clientId, float $gstRate = 0.0): Collection
-    {
+    public static function lowBudgetRows(
+        Collection $assignServices,
+        ?int $clientId,
+        array $spendByAssignmentId,
+        float $gstRate
+    ): Collection {
         $assignments = $assignServices->filter(function ($a) use ($clientId) {
             return (! $clientId || (int) $a->client_id === $clientId)
                 && ($a->status === null || (int) $a->status === 1)
@@ -123,45 +127,24 @@ final class Helpers
             return collect();
         }
 
-        $campaignIds = $assignments
-            ->flatMap(fn($a) => $a->campaign_ids)
-            ->map(fn($id) => (string) $id)
-            ->unique()
-            ->values();
-
-        // One query covering the widest date window, then split per assignment in memory.
-        $stats = MetaAdsDailyStat::query()
-            ->whereIn('campaign_id', $campaignIds)
-            ->whereBetween('report_date', [
-                $assignments->min(fn($a) => $a->from_date->toDateString()),
-                $assignments->max(fn($a) => $a->to_date->toDateString()),
-            ])
-            ->get(['campaign_id', 'report_date', 'spend'])
-            ->groupBy(fn($row) => (string) $row->campaign_id);
-
         return $assignments
-            ->map(function ($a) use ($stats, $gstRate) {
-                $from = $a->from_date->toDateString();
-                $to   = $a->to_date->toDateString();
+            ->map(function ($a) use ($spendByAssignmentId, $gstRate) {
+                if (! array_key_exists($a->id, $spendByAssignmentId)
+                    || ! is_numeric($spendByAssignmentId[$a->id])
+                ) {
+                    throw new \InvalidArgumentException(
+                        'Missing live Meta spend for assignment #' . $a->id . '.'
+                    );
+                }
 
-                // Only spend that falls inside this assignment's date range
-                $inRange = collect($a->campaign_ids)
-                    ->flatMap(fn($id) => $stats->get((string) $id, collect()))
-                    ->filter(function ($row) use ($from, $to) {
-                        $d = $row->report_date->toDateString();
-                        return $d >= $from && $d <= $to;
-                    });
-
-                $budget    = (float) $a->budget;
-                $spentExcl = (float) $inRange->sum('spend');
-                $spentIncl = $spentExcl * (1 + $gstRate);
-                $available = $budget - $spentIncl;
+                $budget        = (float) $a->budget;
+                $spentExclGst  = (float) $spendByAssignmentId[$a->id];
+                $spentInclGst  = round($spentExclGst * (1 + $gstRate), 2);
+                $available     = round($budget - $spentInclGst, 2);
 
                 if ($available > self::LOW_BUDGET_LIMIT) {
                     return null;
                 }
-
-                $lastDate = $inRange->max(fn($row) => $row->report_date->toDateString());
 
                 return [
                     'id'             => $a->id,
@@ -169,11 +152,10 @@ final class Helpers
                     'service'        => $a->title ?: 'Service #' . $a->id,
                     'from_date'      => $a->from_date,
                     'to_date'        => $a->to_date,
-                    'date'           => $lastDate ? Carbon::parse($lastDate) : now(),
                     'budget'         => $budget,
-                    'spent_excl_gst' => $spentExcl,
-                    'spent'          => $spentIncl,   // incl. GST
-                    'available'      => $available,   // budget − (spent + GST)
+                    'spent_excl_gst' => $spentExclGst,
+                    'spent'          => $spentInclGst,
+                    'available'      => $available,
                 ];
             })
             ->filter()

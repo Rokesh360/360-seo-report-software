@@ -302,12 +302,16 @@ class MetaCatalogService
     }
 
     /** Fetch campaign-level spend for an explicit date range. */
-    public function campaignsForDateRange(string $since, string $until): array
+    public function campaignsForDateRange(
+        string $since,
+        string $until,
+        string $fields = 'campaign_id,campaign_name,spend,account_currency,actions'
+    ): array
     {
         return $this->section(fn() => $this->rawGetAll(
             $this->adAccountId() . '/insights',
             [
-                'fields' => 'campaign_id,campaign_name,spend,account_currency,actions',
+                'fields' => $fields,
                 'level' => 'campaign',
                 'limit' => 200,
                 'time_range' => json_encode([
@@ -316,6 +320,56 @@ class MetaCatalogService
                 ]),
             ]
         ));
+    }
+
+    /**
+     * Sum live Meta spend for the selected campaigns and date range.
+     *
+     * @param  list<string|int>  $campaignIds
+     */
+    public function campaignSpendForDateRange(array $campaignIds, string $since, string $until): float
+    {
+        if ($campaignIds === []) {
+            return 0.0;
+        }
+
+        $result = $this->campaignsForDateRange($since, $until, 'campaign_id,spend');
+
+        if (! $result['ok']) {
+            throw new RuntimeException($result['error'] ?? 'Could not fetch campaign spend from Meta.');
+        }
+
+        if (! is_array($result['data'])) {
+            throw new RuntimeException('Meta returned invalid campaign spend data.');
+        }
+
+        $selectedIds = array_fill_keys(array_map('strval', $campaignIds), true);
+        $seenIds = [];
+        $spend = 0.0;
+
+        foreach ($result['data'] as $campaign) {
+            if (! is_array($campaign) || empty($campaign['campaign_id'])) {
+                throw new RuntimeException('Meta returned incomplete campaign spend data.');
+            }
+
+            $campaignId = (string) $campaign['campaign_id'];
+            if (! isset($selectedIds[$campaignId])) {
+                continue;
+            }
+
+            if (isset($seenIds[$campaignId])) {
+                throw new RuntimeException('Meta returned duplicate campaign spend data.');
+            }
+
+            if (! isset($campaign['spend']) || ! is_numeric($campaign['spend'])) {
+                throw new RuntimeException('Meta returned invalid spend for a selected campaign.');
+            }
+
+            $seenIds[$campaignId] = true;
+            $spend += (float) $campaign['spend'];
+        }
+
+        return round($spend, 2);
     }
 
     /** Everything the page needs, each section isolated from the others. */
