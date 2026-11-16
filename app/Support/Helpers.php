@@ -378,11 +378,13 @@ final class Helpers
 
     public static function summariseMetaAds(Carbon $from, Carbon $to): array
     {
-        $rows = MetaAdsDailyStat::whereBetween('report_date', [$from->toDateString(), $to->toDateString()])->get();
+        $rows = MetaAdsDailyStat::with('campaign')
+            ->whereBetween('report_date', [$from->toDateString(), $to->toDateString()])
+            ->get();
 
-        $campaigns = $rows->groupBy('campaign_id')->map(function ($group) {
+        $campaigns = $rows->groupBy('meta_ads_campaign_id')->map(function ($group) {
             $totals = self::metaTotals($group);
-            $totals['name'] = $group->sortByDesc('report_date')->first()->campaign_name;
+            $totals['name'] = $group->first()->campaign?->campaign_name;
             $totals['type'] = self::guessMetaType($totals);
 
             return $totals;
@@ -1032,13 +1034,14 @@ final class Helpers
     public static function campaignOptions(): Collection
     {
         return MetaAdsDailyStat::query()
-            ->whereDate('report_date', now()->toDateString())
-            ->selectRaw('campaign_id, MAX(campaign_name) as campaign_name,
-             SUM(leads) as total_leads,
-             SUM(messaging_conversations) as total_msgs,
-             SUM(spend) as total_spend')
-            ->groupBy('campaign_id')
-            ->orderBy('campaign_name')
+            ->whereDate('meta_ads_daily_stats.report_date', now()->toDateString())
+            ->join('meta_ads_campaigns', 'meta_ads_campaigns.id', '=', 'meta_ads_daily_stats.meta_ads_campaign_id')
+            ->selectRaw('meta_ads_campaigns.campaign_id, MAX(meta_ads_campaigns.campaign_name) as campaign_name,
+             SUM(meta_ads_daily_stats.leads) as total_leads,
+             SUM(meta_ads_daily_stats.messaging_conversations) as total_msgs,
+             SUM(meta_ads_daily_stats.spend) as total_spend')
+            ->groupBy('meta_ads_campaigns.campaign_id')
+            ->orderBy('meta_ads_campaigns.campaign_name')
             ->get()
             ->map(fn($c) => self::decorateCampaign($c));
     }

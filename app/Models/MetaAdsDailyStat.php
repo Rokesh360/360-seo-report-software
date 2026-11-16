@@ -12,4 +12,9 @@ class MetaAdsDailyStat extends Model
         'report_date' => 'date',
         'actions'     => 'array',
     ];
+
+    public function campaign()
+    {
+        return $this->belongsTo(MetaAdsCampaign::class);
+    }
 }

@@ -628,6 +628,9 @@
                 @foreach($aiReportItems as $entry)
                 @php $item = $entry['item']; $fit = $entry['fit']; @endphp
                 <div class="ai-report-item">
+                    @if(!empty($item['title']))
+                    <h3>{{ $item['title'] }}</h3>
+                    @endif
                     @if(!empty($item['keyword']))
                     <p><strong>Keyword:</strong> {{ $item['keyword'] }}</p>
                     @endif

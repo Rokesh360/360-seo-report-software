@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\MetaAdsCampaign;
 use App\Models\MetaAdsDailyStat;
 use App\Services\MetaCatalogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,15 +24,19 @@ class MetaAdsYesterdaySyncTest extends TestCase
 
         $yesterday = now()->subDay()->toDateString();
         $today = now()->toDateString();
+        $campaign = MetaAdsCampaign::create([
+            'campaign_id' => '987654',
+            'campaign_name' => 'WhatsApp Campaign',
+        ]);
 
         MetaAdsDailyStat::create([
             'report_date' => $yesterday,
-            'campaign_id' => '987654',
+            'meta_ads_campaign_id' => $campaign->id,
             'spend' => 10,
         ]);
         MetaAdsDailyStat::create([
             'report_date' => $today,
-            'campaign_id' => '987654',
+            'meta_ads_campaign_id' => $campaign->id,
             'spend' => 99,
         ]);
 
@@ -51,12 +56,12 @@ class MetaAdsYesterdaySyncTest extends TestCase
         $this->assertSame(1, $count);
         $this->assertDatabaseHas('meta_ads_daily_stats', [
             'report_date' => $yesterday,
-            'campaign_id' => '987654',
+            'meta_ads_campaign_id' => $campaign->id,
             'spend' => 25.50,
         ]);
         $this->assertDatabaseHas('meta_ads_daily_stats', [
             'report_date' => $today,
-            'campaign_id' => '987654',
+            'meta_ads_campaign_id' => $campaign->id,
             'spend' => 99,
         ]);
 

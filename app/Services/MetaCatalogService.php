@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MetaAdsCampaign;
 use Illuminate\Http\Client\ConnectionException;
 use App\Models\MetaAdsDailyStat;
 use Illuminate\Support\Facades\DB;
@@ -306,8 +307,7 @@ class MetaCatalogService
         string $since,
         string $until,
         string $fields = 'campaign_id,campaign_name,spend,account_currency,actions'
-    ): array
-    {
+    ): array {
         return $this->section(fn() => $this->rawGetAll(
             $this->adAccountId() . '/insights',
             [
@@ -453,11 +453,15 @@ class MetaCatalogService
 
     public function storeYesterday(): int
     {
-        $yesterday = now()->subDay()->toDateString();
+        return $this->storeForDate(now()->subDay()->toDateString());
+    }
+
+    public function storeForDate(string $date): int
+    {
         $data = $this->dashboard([
             'range' => 'custom',
-            'since' => $yesterday,
-            'until' => $yesterday,
+            'since' => $date,
+            'until' => $date,
         ]);
 
         if (! ($data['campaigns']['ok'] ?? false)) {
@@ -466,30 +470,25 @@ class MetaCatalogService
             );
         }
 
-        $campaignRows = $data['campaigns']['data']['data'] ?? $data['campaigns']['data'] ?? [];
-        $campaigns = collect($campaignRows);
+        $campaigns = collect($data['campaigns']['data'] ?? []);
 
         if ($campaigns->isEmpty()) {
-            throw new RuntimeException("No campaign data found for {$yesterday}.");
+            throw new RuntimeException("No campaign data found for {$date}.");
         }
 
-        $hasInvalidCampaign = $campaigns->contains(
-            fn($campaign) => ! is_array($campaign)
-                || empty($campaign['campaign_id'])
-                || ! isset($campaign['spend'])
-                || ! is_numeric($campaign['spend'])
+        $invalid = $campaigns->contains(
+            fn($c) => ! is_array($c)
+                || empty($c['campaign_id'])
+                || ! isset($c['spend'])
+                || ! is_numeric($c['spend'])
         );
 
-        if ($hasInvalidCampaign) {
-            throw new RuntimeException(
-                'Meta returned incomplete campaign data. No data was saved; please try again.'
-            );
+        if ($invalid) {
+            throw new RuntimeException('Meta returned incomplete campaign data. No data was saved; please try again.');
         }
 
         if ($campaigns->pluck('campaign_id')->unique()->count() !== $campaigns->count()) {
-            throw new RuntimeException(
-                'Meta returned duplicate campaign rows. No data was saved; please try again.'
-            );
+            throw new RuntimeException('Meta returned duplicate campaign rows. No data was saved; please try again.');
         }
 
         $action = function (array $campaign, array $types): int {
@@ -499,36 +498,85 @@ class MetaCatalogService
                     return (int) $actions[$type]['value'];
                 }
             }
-
             return 0;
         };
 
-        DB::transaction(function () use ($campaigns, $yesterday, $action): void {
-            MetaAdsDailyStat::whereDate('report_date', $yesterday)->delete();
+        DB::transaction(function () use ($campaigns, $date, $action): void {
+            foreach ($campaigns as $c) {
+                $campaign = MetaAdsCampaign::firstOrNew(['campaign_id' => (string) $c['campaign_id']]);
+                $campaign->campaign_name = ($c['campaign_name'] ?? null) ?: $campaign->campaign_name;
+                $campaign->currency = ($c['account_currency'] ?? null) ?: $campaign->currency;
+                $campaign->save();
 
-            foreach ($campaigns as $campaign) {
-                MetaAdsDailyStat::create([
-                    'report_date'             => $yesterday,
-                    'campaign_id'             => $campaign['campaign_id'],
-                    'campaign_name'           => $campaign['campaign_name'] ?? null,
-                    'spend'                   => $campaign['spend'],
-                    'impressions'             => (int) ($campaign['impressions'] ?? 0),
-                    'clicks'                  => (int) ($campaign['clicks'] ?? 0),
-                    'reach'                   => (int) ($campaign['reach'] ?? 0),
-                    'ctr'                     => $campaign['ctr'] ?? 0,
-                    'cpc'                     => $campaign['cpc'] ?? 0,
-                    'cpm'                     => $campaign['cpm'] ?? 0,
-                    'leads'                   => $action($campaign, ['lead', 'onsite_conversion.lead_grouped']),
-                    'messaging_conversations' => $action($campaign, ['onsite_conversion.messaging_conversation_started_7d']),
-                    'currency'                => $campaign['account_currency'] ?? null,
-                    'actions'                 => $campaign['actions'] ?? [],
-                ]);
+                // 2nd table: daily log (insert, or overwrite if the day was already stored)
+                MetaAdsDailyStat::updateOrCreate(
+                    ['report_date' => $date, 'meta_ads_campaign_id' => $campaign->id],
+                    [
+                        'spend'                   => $c['spend'],
+                        'impressions'             => (int) ($c['impressions'] ?? 0),
+                        'clicks'                  => (int) ($c['clicks'] ?? 0),
+                        'reach'                   => (int) ($c['reach'] ?? 0),
+                        'ctr'                     => $c['ctr'] ?? 0,
+                        'cpc'                     => $c['cpc'] ?? 0,
+                        'cpm'                     => $c['cpm'] ?? 0,
+                        'leads'                   => $action($c, ['lead', 'onsite_conversion.lead_grouped']),
+                        'messaging_conversations' => $action($c, ['onsite_conversion.messaging_conversation_started_7d']),
+                        'currency'                => $c['account_currency'] ?? null,
+                        'actions'                 => $c['actions'] ?? [],
+                    ]
+                );
+
+                // 1st table: insert new campaign / update existing totals
+                $this->refreshCampaignTotals(
+                    $campaign,
+                    $c['campaign_name'] ?? null,
+                    $c['account_currency'] ?? null
+                );
             }
         });
 
         return $campaigns->count();
     }
 
+    /** Create the campaign row if new, otherwise update it, with totals recomputed from the daily log. */
+    private function refreshCampaignTotals(MetaAdsCampaign $campaign, ?string $name, ?string $currency): void
+    {
+        $t = MetaAdsDailyStat::where('meta_ads_campaign_id', $campaign->id)
+            ->selectRaw('
+            COALESCE(SUM(spend), 0)                    AS spend,
+            COALESCE(SUM(impressions), 0)              AS impressions,
+            COALESCE(SUM(clicks), 0)                   AS clicks,
+            COALESCE(SUM(reach), 0)                    AS reach,
+            COALESCE(SUM(leads), 0)                    AS leads,
+            COALESCE(SUM(messaging_conversations), 0)  AS messaging_conversations,
+            COUNT(*)                                   AS days_count,
+            MIN(report_date)                           AS first_report_date,
+            MAX(report_date)                           AS last_report_date
+        ')
+            ->first();
+
+        $spend       = (float) $t->spend;
+        $impressions = (int) $t->impressions;
+        $clicks      = (int) $t->clicks;
+
+        $campaign->fill([
+            'campaign_name'           => $name ?: $campaign->campaign_name, // keep latest name
+            'currency'                => $currency ?: $campaign->currency,
+            'spend'                   => $spend,
+            'impressions'             => $impressions,
+            'clicks'                  => $clicks,
+            'reach'                   => (int) $t->reach,
+            'ctr'                     => $impressions ? round($clicks / $impressions * 100, 4) : 0,
+            'cpc'                     => $clicks ? round($spend / $clicks, 4) : 0,
+            'cpm'                     => $impressions ? round($spend / $impressions * 1000, 4) : 0,
+            'leads'                   => (int) $t->leads,
+            'messaging_conversations' => (int) $t->messaging_conversations,
+            'days_count'              => (int) $t->days_count,
+            'first_report_date'       => $t->first_report_date,
+            'last_report_date'        => $t->last_report_date,
+        ])->save();
+    }
+    
     /** Run one request and normalise success/error so the view stays simple. */
     private function section(callable $fn): array
     {
