@@ -18,7 +18,7 @@
 
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
-            font-size: 9.5px;
+            font-size: 11px;
             color: #1f2937;
             margin: 0;
             line-height: 1.55;
@@ -29,7 +29,7 @@
         }
 
         /* ============================================================
-           SITE HEADER (unchanged — repeats on every page)
+           SITE HEADER (repeats on every page)
            ============================================================ */
         header {
             position: fixed;
@@ -62,7 +62,7 @@
 
         .header-title {
             text-align: center;
-            font-size: 22px;
+            font-size: 26px;
             font-weight: bold;
             color: #1f4e9c;
             padding-right: 90px;
@@ -78,7 +78,7 @@
             right: 0;
             border-top: 1px solid #d0d5dd;
             padding-top: 6px;
-            font-size: 8px;
+            font-size: 9px;
             color: #667085;
         }
 
@@ -94,8 +94,9 @@
         }
 
         .footer-addr {
-            text-align: left;
+            text-align: center;
             line-height: 1.5;
+            font-size: 11px;
         }
 
         .footer-name {
@@ -122,13 +123,13 @@
         }
 
         .report-kicker {
-            font-size: 9px;
+            font-size: 11px;
             color: #667085;
             margin-bottom: 3px;
         }
 
         .report-title h1 {
-            font-size: 18px;
+            font-size: 22px;
             margin: 0 0 6px;
             color: #14284b;
             font-weight: bold;
@@ -136,7 +137,7 @@
         }
 
         .report-sub {
-            font-size: 10px;
+            font-size: 12px;
             color: #475467;
             margin: -4px 0 8px;
         }
@@ -162,13 +163,13 @@
         }
 
         .doc-info .di-label {
-            font-size: 8px;
+            font-size: 10px;
             color: #667085;
             display: block;
         }
 
         .doc-info .di-value {
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: bold;
             color: #14284b;
             display: block;
@@ -187,7 +188,7 @@
         }
 
         .section-title {
-            font-size: 12px;
+            font-size: 15px;
             font-weight: bold;
             color: #14284b;
             border-bottom: 1.5px solid #14284b;
@@ -202,7 +203,7 @@
         }
 
         .sub-title {
-            font-size: 10px;
+            font-size: 12px;
             font-weight: bold;
             color: #1f4e9c;
             margin: 12px 0 5px;
@@ -222,11 +223,13 @@
             padding: 4px 8px;
             border-top: 1px solid #e4e7ec;
             border-bottom: 1px solid #e4e7ec;
+            font-size: 11px;
             vertical-align: top;
         }
 
         .meta-grid .label {
             background: #f5f7fa;
+            font-size: 11px;
             font-weight: bold;
             width: 24%;
             color: #344054;
@@ -260,14 +263,14 @@
         }
 
         .kpi-grid .kpi-value {
-            font-size: 14px;
+            font-size: 17px;
             font-weight: bold;
             color: #14284b;
             display: block;
         }
 
         .kpi-grid .kpi-label {
-            font-size: 8.5px;
+            font-size: 10px;
             color: #667085;
             margin-top: 2px;
             display: block;
@@ -296,7 +299,7 @@
         }
 
         .metric-chart h3 {
-            font-size: 9.5px;
+            font-size: 12px;
             color: #344054;
             margin: 0 0 6px;
         }
@@ -309,7 +312,7 @@
 
         .chart-img {
             display: block;
-            width: 68%;
+            width: 91%;
             margin: 0 auto;
         }
 
@@ -327,6 +330,7 @@
 
         .chart-legend-item {
             margin: 5px 0;
+            font-size: 10px;
         }
 
         .legend-swatch {
@@ -348,7 +352,7 @@
         table.data th {
             background: #14284b;
             color: #ffffff;
-            font-size: 9px;
+            font-size: 11px;
             padding: 6px 8px;
             text-align: left;
             border: none;
@@ -358,6 +362,7 @@
             padding: 6px 8px;
             border-bottom: 1px solid #e4e7ec;
             vertical-align: top;
+            font-size: 11px;
         }
 
         table.data tr:nth-child(even) td {
@@ -375,11 +380,13 @@
             font-weight: bold;
             color: #344054;
             display: block;
+            font-size: 11px;
             margin-bottom: 1px;
         }
 
         .text-block .tb-value {
             color: #1f2937;
+            font-size: 11px;
             white-space: pre-wrap;
         }
 
@@ -390,7 +397,7 @@
             margin-top: 20px;
             border-top: 1px solid #d0d5dd;
             padding-top: 8px;
-            font-size: 8.5px;
+            font-size: 10px;
             color: #667085;
             page-break-inside: avoid;
         }
@@ -422,10 +429,9 @@
         <table class="footer-table">
             <tr>
                 <td class="footer-addr">
-                    <span class="footer-name">360 Degree info Pvt Ltd</span><br>
-                    No. 34/29, 3rd Street, 200 Feet Radial Rd, Padmavathi Nagar, Chromepet, Tambaram, Tamil Nadu 600044.
+                    <!-- <span class="footer-name">360 Degree info Pvt Ltd</span><br> -->
+                    No. 34/29, 3rd Street, 200 Feet Radial Rd, Padmavathi Nagar, Chromepet, Tamil Nadu 600044.
                 </td>
-                <td class="footer-page">Page <span class="pagenum"></span></td>
             </tr>
         </table>
     </div>
@@ -436,12 +442,15 @@
     @php
     $trendSrc = null;
     if (!$single && $reports->count() > 1) {
-    $trendLabels = $reports->map(fn ($r) => $r->created_at?->format('d M'))->values()->all();
-    $trendValues = $reports->map(fn ($r) =>
-    (int) $r->total_conversations + (int) $r->total_leads + (int) $r->total_engagement
-    )->values()->all();
+        // Oldest -> newest so the line doesn't zigzag
+        $trendReports = $reports->sortBy('created_at')->values();
 
-    $trendSrc = \App\Support\Helpers::lineChart($trendLabels, $trendValues);
+        $trendLabels = $trendReports->map(fn ($r) => $r->created_at?->format('d M'))->values()->all();
+        $trendValues = $trendReports->map(fn ($r) =>
+            (int) $r->total_conversations + (int) $r->total_leads + (int) $r->total_engagement
+        )->values()->all();
+
+        $trendSrc = \App\Support\Helpers::lineChart($trendLabels, $trendValues);
     }
     @endphp
 
@@ -465,11 +474,22 @@
     @foreach($reports as $index => $report)
 
     @php
+    /* ---------- Per-report assign service (RESOLVE FIRST) ---------- */
+    $reportAssignService  = ($assignServices ?? [])[(int) $report->assign_service_id] ?? null;
+    $reportAssignServices = $reportAssignService ? [$reportAssignService] : [];
+    $assignService        = $reportAssignService;
+    $clientName           = $reportAssignService?->client?->name ?: ($report->client_names ?: '—');
+
+    $obs       = $assignService?->key_observations ?? [];
+    $highlight = $assignService?->performance_highlights ?? [];
+    $summary   = $assignService?->monthly_summary ?? [];
+    $plan      = $assignService?->next_month_plan ?? [];
+
     /* ---------- Report types ---------- */
     $spend = ($spendSummaries ?? [])[$report->id] ?? null;
     $inr = fn ($v) => '₹' . number_format((float) $v, 2);
     $selectedTypes = ($reportTypes ?? [])[$report->id]
-    ?? (array) ($report->selected_report_types ?? []);
+        ?? (array) ($report->selected_report_types ?? []);
     $legacyAll = empty($selectedTypes);
 
     $isAll = count($selectedTypes) > 1;
@@ -477,100 +497,148 @@
     $isLeadGen = !$isAll && in_array('lead_generation_ads', $selectedTypes, true);
     $isEngagement = !$isAll && in_array('social_media_engagement', $selectedTypes, true);
 
-    $showWhatsApp = $legacyAll
-    ? !is_null($report->total_conversations) || !is_null($report->whatsapp_clicks)
-    : in_array('whatsapp_meta_ads', $selectedTypes, true);
-    $showLeadGen = $legacyAll
-    ? !is_null($report->total_leads) || !is_null($report->link_clicks)
-    : in_array('lead_generation_ads', $selectedTypes, true);
-    $showEngagement = $legacyAll
-    ? !is_null($report->total_engagement) || !is_null($report->reactions) || !is_null($report->comments)
-    : in_array('social_media_engagement', $selectedTypes, true);
+    $hasData = function ($values) {
+        return collect($values)
+            ->flatten()
+            ->contains(function ($value) {
+                if ($value === null || $value === false) {
+                    return false;
+                }
+
+                if (is_string($value) && trim($value) === '') {
+                    return false;
+                }
+
+                if (is_numeric($value) && (float) $value == 0) {
+                    return false;
+                }
+
+                return true;
+            });
+    };
+
+    $showWhatsApp = $hasData([
+        $report->total_conversations,
+        $report->whatsapp_clicks,
+        $report->whatsapp_ctr,
+        $report->reach,
+        $report->impressions,
+        $report->frequency,
+    ]);
+
+    $showLeadGen = $hasData([
+        $report->total_leads,
+        $report->link_clicks,
+        $report->lead_ctr,
+        $report->lead_reach,
+        $report->lead_impressions,
+        $report->lead_frequency,
+    ]);
+
+    $showEngagement = $hasData([
+        $report->total_engagement,
+        $report->reactions,
+        $report->comments,
+        $report->shares,
+        $report->saves,
+        $report->profile_visits,
+        $report->new_followers,
+    ]);
+
+    $showOverview = $assignService && $hasData([
+        $assignService->platforms,
+        $assignService->campaign_objective,
+        $assignService->campaign_overview,
+        $assignService->target_audience,
+        $assignService->campaign_focus,
+        $assignService->key_highlights,
+    ]);
 
     $showCreativeAudience = $showWhatsApp || $showLeadGen || $isAll;
     $showTopPosts = $showEngagement;
-
-    $reportAssignService = ($assignServices ?? [])[(int) $report->assign_service_id] ?? null;
-    $reportAssignServices = $reportAssignService ? [$reportAssignService] : [];
-    $clientName = $reportAssignService?->client?->name ?: ($report->client_names ?: '—');
 
     // Every section is numbered
     $sectionNo = 0;
 
     $creative = $report->creative_performance ?? [];
     $audience = $report->audience_performance ?? [];
-    $campaignRows = $report->campaign_results ?? [];
+    $campaignRows = collect($report->campaign_results ?? [])
+        ->filter(fn($row) => $hasData((array) $row))
+        ->values()
+        ->all();
     $topPosts = $report->top_posts ?? [];
     $content = $report->content_analysis ?? [];
 
     /* ---------- Headline figures for the executive summary ---------- */
     $headline = [];
     if ($showWhatsApp) {
-    $headline['Conversations'] = number_format((int) $report->total_conversations);
-    $headline['WhatsApp Reach'] = number_format((int) $report->reach);
+        $headline['Conversations'] = number_format((int) $report->total_conversations);
+        $headline['WhatsApp Reach'] = number_format((int) $report->reach);
     }
     if ($showLeadGen) {
-    $headline['Total Leads'] = number_format((int) $report->total_leads);
-    $headline['Lead Reach'] = number_format((int) $report->lead_reach);
+        $headline['Total Leads'] = number_format((int) $report->total_leads);
+        $headline['Lead Reach'] = number_format((int) $report->lead_reach);
     }
     if ($showEngagement) {
-    $headline['Total Engagement'] = number_format((int) $report->total_engagement);
-    $headline['New Followers'] = number_format((int) $report->new_followers);
+        $headline['Total Engagement'] = number_format((int) $report->total_engagement);
+        $headline['New Followers'] = number_format((int) $report->new_followers);
     }
     $headline = array_slice($headline, 0, 4, true);
     $headlineWidth = count($headline) ? floor(100 / count($headline)) : 100;
 
     /* ---------- Chart data ---------- */
     $engagementSlices = [
-    'Reactions' => (int) $report->reactions,
-    'Comments' => (int) $report->comments,
-    'Shares' => (int) $report->shares,
-    'Saves' => (int) $report->saves,
+        'Reactions' => (int) $report->reactions,
+        'Comments' => (int) $report->comments,
+        'Shares' => (int) $report->shares,
+        'Saves' => (int) $report->saves,
     ];
     $engagementSlices = array_filter($engagementSlices, static fn ($value) => $value > 0);
     $engagementTotal = array_sum($engagementSlices);
     $engagementColors = \App\Support\Helpers::PALETTE;
 
+    // Reset per report so values never carry over between reports
     $graphMetrics = [];
     if ($showWhatsApp) {
-    $graphMetrics += [
-    'Conversations' => (int) $report->total_conversations,
-    'WA Clicks' => (int) $report->whatsapp_clicks,
-    'WA Reach' => (int) $report->reach,
-    'WA Impr.' => (int) $report->impressions,
-    ];
+        $graphMetrics += [
+            'Conversations' => (int) $report->total_conversations,
+            'WA Clicks' => (int) $report->whatsapp_clicks,
+            'WA Reach' => (int) $report->reach,
+            'WA Impr.' => (int) $report->impressions,
+        ];
     }
     if ($showLeadGen) {
-    $graphMetrics += [
-    'Leads' => (int) $report->total_leads,
-    'Link Clicks' => (int) $report->link_clicks,
-    'Lead Reach' => (int) $report->lead_reach,
-    'Lead Impr.' => (int) $report->lead_impressions,
-    ];
+        $graphMetrics += [
+            'Leads' => (int) $report->total_leads,
+            'Link Clicks' => (int) $report->link_clicks,
+            'Lead Reach' => (int) $report->lead_reach,
+            'Lead Impr.' => (int) $report->lead_impressions,
+        ];
     }
     if ($showEngagement) {
-    $graphMetrics += [
-    'Reactions' => (int) $report->reactions,
-    'Comments' => (int) $report->comments,
-    'Shares' => (int) $report->shares,
-    'Saves' => (int) $report->saves,
-    ];
+        $graphMetrics += [
+            'Reactions' => (int) $report->reactions,
+            'Comments' => (int) $report->comments,
+            'Shares' => (int) $report->shares,
+            'Saves' => (int) $report->saves,
+        ];
     }
+    // Drop zero values after building
+    $graphMetrics = array_filter($graphMetrics, fn ($value) => (float) $value > 0);
 
-    $barSrc = \App\Support\Helpers::barGraph($graphMetrics);
-    $pieSrc = $showEngagement ? \App\Support\Helpers::pie($engagementSlices) : null;
+    $barSrc = !empty($graphMetrics)
+        ? \App\Support\Helpers::barGraph($graphMetrics)
+        : null;
 
-    $assignService = $reportAssignService;
-    $obs = $assignService?->key_observations ?? [];
-    $highlight = $assignService?->performance_highlights ?? [];
-    $summary = $assignService?->monthly_summary ?? [];
-    $plan = $assignService?->next_month_plan ?? [];
+    $pieSrc = $showEngagement && !empty($engagementSlices)
+        ? \App\Support\Helpers::pie($engagementSlices)
+        : null;
 
     $typeLabel = collect($selectedTypes)->map(fn ($type) => match ($type) {
-    'whatsapp_meta_ads' => 'WhatsApp Meta Ads',
-    'lead_generation_ads' => 'Lead Generation',
-    'social_media_engagement' => 'Engagement',
-    default => $type,
+        'whatsapp_meta_ads' => 'WhatsApp Meta Ads',
+        'lead_generation_ads' => 'Lead Generation',
+        'social_media_engagement' => 'Engagement',
+        default => $type,
     })->implode(' + ');
     @endphp
 
@@ -583,7 +651,7 @@
                 @if($isWhatsApp) WhatsApp Meta Ads
                 @elseif($isLeadGen) Lead Generation Ads
                 @elseif($isEngagement) Social Media Engagement
-                @elseif($isAll) Combined Social Media Report
+                @elseif($isAll) Social Media Report
                 @else Social Media Report
                 @endif
             </h1>
@@ -597,7 +665,7 @@
         <table class="doc-info">
             <tr>
                 <td><span class="di-label">Client</span><span class="di-value">{{ $clientName }}</span></td>
-                <td><span class="di-label">Report date</span><span class="di-value">{{ $report->created_at?->format('d M Y') }}</span></td>
+                <td><span class="di-label">Report date</span><span class="di-value">{{ $reportAssignService?->from_date?->format('d M Y') ?? '—' }} - {{ $report->created_at?->format('d M Y') }}</span></td>
                 <td>
                     <span class="di-label">Report type</span>
                     <span class="di-value">{{ (!$single && !empty($report->report_type_label)) ? $report->report_type_label : ($typeLabel ?: 'Social Media') }}</span>
@@ -609,7 +677,7 @@
         {{-- ============================================================
              OVERVIEW (first section)
              ============================================================ --}}
-        @if($assignService)
+        @if($showOverview)
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title">
@@ -641,7 +709,7 @@
         {{-- ============================================================
              EXECUTIVE SUMMARY
              ============================================================ --}}
-        @if(count($headline) || !empty(array_filter($summary)))
+        @if($hasData($headline) || $hasData($summary))
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Executive Summary</h2>
@@ -786,12 +854,11 @@
         @endif
 
         {{-- ---------- Campaign / Ad Set Results ---------- --}}
-        @if(!empty($campaignRows) || ($spend && $spend['budget'] > 0))
+        @if($hasData($campaignRows))
         @php $sectionNo++; @endphp
         <div class="section">
-            <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Campaign / Ad Set Results</h2>
-
             @if(!empty($campaignRows))
+            <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Campaign / Ad Set Results</h2>
             <table class="data">
                 <thead>
                     <tr>
@@ -814,6 +881,7 @@
             </table>
             @endif
 
+            {{-- Budget & Spend Summary (disabled). Remove this comment wrapper to re-enable.
             @if($spend)
             <div class="sub-title">Budget &amp; Spend Summary</div>
             <table class="kpi-grid keep">
@@ -849,11 +917,12 @@
                 </tr>
             </table>
             @endif
+            --}}
         </div>
         @endif
 
         {{-- ---------- Top Posts ---------- --}}
-        @if($showTopPosts && !empty($topPosts))
+        @if($showTopPosts && $hasData($topPosts))
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Top Performing Posts</h2>
@@ -879,7 +948,7 @@
         @endif
 
         {{-- ---------- Content Analysis ---------- --}}
-        @if($showTopPosts && !empty(array_filter($content)))
+        @if($showTopPosts && $hasData($content))
         @php $sectionNo++; @endphp
         <div class="section keep">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Content Analysis</h2>
@@ -907,7 +976,7 @@
         @endif
 
         {{-- ---------- Creative & Audience Performance ---------- --}}
-        @if($showCreativeAudience && (!empty(array_filter($creative)) || !empty(array_filter($audience))))
+        @if($showCreativeAudience && ($hasData($creative) || $hasData($audience)))
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Creative &amp; Audience Performance</h2>
@@ -961,7 +1030,7 @@
         {{-- ============================================================
              KEY OBSERVATIONS
              ============================================================ --}}
-        @if(!empty(array_filter($obs)) || !empty(array_filter($highlight)))
+        @if($hasData($obs) || $hasData($highlight))
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Key Observations</h2>
@@ -997,7 +1066,7 @@
         {{-- ============================================================
              NEXT MONTH PLAN
              ============================================================ --}}
-        @if(!empty(array_filter($plan)))
+        @if($hasData($plan))
         @php $sectionNo++; @endphp
         <div class="section">
             <h2 class="section-title"><span class="sec-no">{{ $sectionNo }}.</span> Recommendations &amp; Next Month Plan</h2>
