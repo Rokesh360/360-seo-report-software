@@ -542,6 +542,7 @@
             @endif
             @break
 
+
             {{-- ===================== KEYWORD TARGET PAGE, POSITION & SCREENSHOT ===================== --}}
             @case('keyword_details')
             @php
@@ -556,23 +557,25 @@
             'text' => $text,
             'page' => $page ? $ordinal($page) : '',
             'position' => $position ? $ordinal($position) : '',
-            // fit inside 600 x 240 box, any upload size
             'fit' => $fitImage($imagePath, 600, 240),
             ];
             })
-            ->filter(fn ($k) => $k['text'] || $k['fit'])
+            ->filter(fn ($k) => $k['fit']) // Only show items with uploaded screenshots
             ->values();
             @endphp
 
             @foreach($keywordItems as $item)
             <table class="kw-block" cellspacing="0" cellpadding="0">
-                @if($item['text'])
+                {{-- Show title only when screenshot exists --}}
+                @if($item['fit'] && $item['text'])
                 <tr>
                     <td class="kw-title">
                         {{ $item['text'] }}
+
                         @if($item['page'])
                         <sup>{{ $item['page'] }}</sup> page
                         @endif
+
                         @if($item['position'])
                         <sup>{{ $item['position'] }}</sup> position
                         @endif
@@ -591,6 +594,7 @@
                 </tr>
                 @endif
             </table>
+
             <div class="kw-gap"></div>
             @endforeach
             @break
@@ -615,12 +619,12 @@
             @if(!empty($report->ai_reports))
             @php
             $aiReportItems = collect($report->ai_reports)
-                ->map(fn ($item) => [
-                    'item' => $item,
-                    'fit' => $fitImage($item['path'] ?? null, 480, 420),
-                ])
-                ->filter(fn ($entry) => $entry['fit'])
-                ->values();
+            ->map(fn ($item) => [
+            'item' => $item,
+            'fit' => $fitImage($item['path'] ?? null, 480, 420),
+            ])
+            ->filter(fn ($entry) => $entry['fit'])
+            ->values();
             @endphp
             @if($aiReportItems->isNotEmpty())
             <div class="section ai-report-section">
